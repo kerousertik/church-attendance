@@ -1,0 +1,18 @@
+{
+    "name": "Attendance - St. John the Beloved",
+    "short_name": "Attendance",
+    "description": "Church Attendance Management - St. John the Beloved Middle School",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/static/app-icon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}

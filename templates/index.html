@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1f36">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Attendance</title>
+    <link rel="icon" type="image/png" href="/static/app-icon.png">
+    <link rel="apple-touch-icon" href="/static/app-icon.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-content">
+            <img src="/static/app-icon.png" alt="Cross" class="splash-logo">
+            <h1 class="splash-title">Attendance</h1>
+            <p class="splash-subtitle">St. John the Beloved</p>
+            <div class="splash-loader">
+                <div class="loader-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app" style="display: none;">
+        <!-- Top App Bar -->
+        <header class="app-bar">
+            <div class="app-bar-left">
+                <img src="/static/app-icon.png" alt="Logo" class="app-bar-logo">
+                <div class="app-bar-title">
+                    <span class="title">Attendance</span>
+                    <span class="subtitle" id="current-date"></span>
+                </div>
+            </div>
+            <div class="app-bar-right">
+                <div class="admin-chip" id="admin-chip" onclick="app.toggleAdminMode()">
+                    <span class="material-icons-round">admin_panel_settings</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div id="view-home" class="view active">
+                <div class="stats-row" id="stats-container">
+                    <div class="stat-chip" onclick="app.showAlertStudents()">
+                        <span class="material-icons-round">people</span>
+                        <span class="stat-value" id="total-students">--</span>
+                    </div>
+                    <div class="stat-chip warning" onclick="app.filterAlerts('yellow')">
+                        <span class="material-icons-round">warning</span>
+                        <span class="stat-value" id="yellow-alerts">--</span>
+                    </div>
+                    <div class="stat-chip danger" onclick="app.filterAlerts('red')">
+                        <span class="material-icons-round">error</span>
+                        <span class="stat-value" id="red-alerts">--</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2 class="section-title">Quick Actions</h2>
+                    <div class="action-grid">
+                        <div class="action-tile" onclick="app.showServants()">
+                            <div class="tile-icon primary">
+                                <span class="material-icons-round">how_to_reg</span>
+                            </div>
+                            <span class="tile-label">Take Attendance</span>
+                        </div>
+                        <div class="action-tile" onclick="app.showAlertStudents()">
+                            <div class="tile-icon warning">
+                                <span class="material-icons-round">notification_important</span>
+                            </div>
+                            <span class="tile-label">Alerts</span>
+                        </div>
+                        <div class="action-tile" onclick="app.showAllKids()">
+                            <div class="tile-icon success">
+                                <span class="material-icons-round">groups</span>
+                            </div>
+                            <span class="tile-label">All Kids</span>
+                        </div>
+                        <div class="action-tile" onclick="app.exportExcel()">
+                            <div class="tile-icon info">
+                                <span class="material-icons-round">download</span>
+                            </div>
+                            <span class="tile-label">Export</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section admin-section" id="admin-actions" style="display:none;">
+                    <h2 class="section-title">Admin Tools</h2>
+                    <div class="admin-buttons">
+                        <button class="admin-btn" onclick="app.showAddStudent()">
+                            <span class="material-icons-round">person_add</span>
+                            Add Kid
+                        </button>
+                        <button class="admin-btn" onclick="app.showAddServant()">
+                            <span class="material-icons-round">group_add</span>
+                            Add Servant
+                        </button>
+                        <button class="admin-btn" onclick="app.triggerUploadExcel()">
+                            <span class="material-icons-round">upload_file</span>
+                            Upload Excel
+                        </button>
+                    </div>
+                    <input type="file" id="excel-upload" accept=".xlsx,.xls" style="display:none;"
+                        onchange="app.uploadExcel(event)">
+                </div>
+            </div>
+
+            <!-- Servant Selection View -->
+            <div id="view-servant" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1>Select Servant</h1>
+                </div>
+                <div class="list-container" id="servant-list"></div>
+            </div>
+
+            <!-- Filter View -->
+            <div id="view-filters" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showServants()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1>Select Students</h1>
+                </div>
+
+                <div class="filter-card">
+                    <h3>Grade</h3>
+                    <div class="chip-group" id="grade-buttons"></div>
+                </div>
+
+                <div class="filter-card">
+                    <h3>Gender</h3>
+                    <div class="chip-group" id="gender-buttons"></div>
+                </div>
+
+                <button class="fab-extended" onclick="app.loadStudents()" id="load-students-btn" disabled>
+                    <span class="material-icons-round">check</span>
+                    <span>Show Students</span>
+                </button>
+            </div>
+
+            <!-- Student List View -->
+            <div id="view-list" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showFilters()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <div class="header-info">
+                        <h1 id="filter-summary">Students</h1>
+                    </div>
+                    <div class="header-actions">
+                        <button class="icon-btn success" onclick="app.markAllPresent()" title="All Present">
+                            <span class="material-icons-round">done_all</span>
+                        </button>
+                        <button class="icon-btn danger" onclick="app.markAllAbsent()" title="All Absent">
+                            <span class="material-icons-round">close</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="list-container" id="student-list"></div>
+
+                <!-- Floating Action Button -->
+                <button class="fab" id="save-fab" onclick="app.saveAllAttendance()" style="display:none;">
+                    <span class="material-icons-round">save</span>
+                    <span class="fab-badge" id="marked-count">0</span>
+                </button>
+            </div>
+
+            <!-- Alerts View -->
+            <div id="view-alerts" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1>Alerts</h1>
+                </div>
+                <div class="tabs">
+                    <button class="tab active" onclick="app.filterAlerts('all')">All</button>
+                    <button class="tab" onclick="app.filterAlerts('red')">Critical</button>
+                    <button class="tab" onclick="app.filterAlerts('yellow')">Warning</button>
+                </div>
+                <div class="list-container" id="alert-list"></div>
+            </div>
+
+            <!-- All Kids - Servant Selection -->
+            <div id="view-kids" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1>All Kids</h1>
+                </div>
+                <p class="page-subtitle">Select a servant to view their kids</p>
+                <div class="list-container" id="kids-servant-list"></div>
+            </div>
+
+            <!-- Servant's Kids View -->
+            <div id="view-servant-kids" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showAllKids()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1 id="servant-kids-title">Kids</h1>
+                </div>
+                <div class="search-bar">
+                    <span class="material-icons-round">search</span>
+                    <input type="text" placeholder="Search kids..." oninput="app.searchServantKids(this.value)">
+                </div>
+                <div class="list-container" id="servant-kids-list"></div>
+            </div>
+
+            <!-- Kid Actions View -->
+            <div id="view-kid-actions" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.backToServantKids()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1 id="kid-action-title">Kid</h1>
+                </div>
+                <div class="action-buttons-vertical">
+                    <button class="large-action-btn" onclick="app.showKidDetails()">
+                        <span class="material-icons-round">assignment</span>
+                        <div class="btn-text">
+                            <span class="btn-title">Check Notes</span>
+                            <span class="btn-desc">View details, attendance, & notes</span>
+                        </div>
+                        <span class="material-icons-round">chevron_right</span>
+                    </button>
+                    <button class="large-action-btn" onclick="app.showAddNote()">
+                        <span class="material-icons-round">edit_note</span>
+                        <div class="btn-text">
+                            <span class="btn-title">Add Note</span>
+                            <span class="btn-desc">Write a new note</span>
+                        </div>
+                        <span class="material-icons-round">chevron_right</span>
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="app.showHome()">
+                <span class="material-icons-round">home</span>
+                <span>Home</span>
+            </button>
+            <button class="nav-item" onclick="app.showServants()">
+                <span class="material-icons-round">how_to_reg</span>
+                <span>Attendance</span>
+            </button>
+            <button class="nav-item" onclick="app.showAllKids()">
+                <span class="material-icons-round">groups</span>
+                <span>Kids</span>
+            </button>
+            <button class="nav-item" onclick="app.showAlertStudents()">
+                <span class="material-icons-round">notifications</span>
+                <span>Alerts</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay" onclick="app.closeAllModals()"></div>
+
+    <!-- Kid Details Bottom Sheet -->
+    <div id="kid-details-sheet" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+            <h2 id="kid-details-title">Kid Details</h2>
+            <button class="close-btn" onclick="app.closeKidDetailsModal()">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <div class="sheet-content" id="kid-details-content"></div>
+    </div>
+
+    <!-- Add Note Bottom Sheet -->
+    <div id="add-note-sheet" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+            <h2>Add Note</h2>
+            <button class="close-btn" onclick="app.closeAddNoteModal()">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <div class="sheet-content">
+            <form id="add-note-form" onsubmit="app.submitNote(event)">
+                <div class="input-group">
+                    <label>Note for <span id="note-kid-name"></span></label>
+                    <textarea id="note-text" rows="4" placeholder="Enter your note..."></textarea>
+                </div>
+                <div class="input-group">
+                    <label>Your Name (optional)</label>
+                    <input type="text" id="note-created-by" placeholder="Enter your name">
+                </div>
+                <button type="submit" class="submit-btn">
+                    <span class="material-icons-round">save</span>
+                    Save Note
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Student Bottom Sheet -->
+    <div id="student-sheet" class="bottom-sheet large">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+            <h2 id="student-modal-title">Add Student</h2>
+            <button class="close-btn" onclick="app.closeStudentModal()">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <div class="sheet-content">
+            <form id="student-form" onsubmit="app.submitStudent(event)">
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Name *</label>
+                        <input type="text" id="student-name" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Servant *</label>
+                        <input type="text" id="student-servant" required list="servant-list-data">
+                        <datalist id="servant-list-data"></datalist>
+                    </div>
+                </div>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Grade *</label>
+                        <select id="student-grade" required>
+                            <option value="">Select</option>
+                            <option value="6">6th Grade</option>
+                            <option value="7">7th Grade</option>
+                            <option value="8">8th Grade</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Gender *</label>
+                        <select id="student-gender" required>
+                            <option value="">Select</option>
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Phone</label>
+                        <input type="tel" id="student-phone">
+                    </div>
+                    <div class="input-group">
+                        <label>Parent Phone</label>
+                        <input type="tel" id="student-parent-phone">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Date of Birth</label>
+                    <input type="date" id="student-dob">
+                </div>
+                <div class="input-group">
+                    <label>Address</label>
+                    <textarea id="student-address" rows="2"></textarea>
+                </div>
+                <div class="input-group">
+                    <label>Comments</label>
+                    <textarea id="student-comments" rows="2"></textarea>
+                </div>
+                <button type="submit" class="submit-btn">
+                    <span class="material-icons-round">save</span>
+                    Save Student
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Servant Bottom Sheet -->
+    <div id="servant-sheet" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+            <h2>Add Servant</h2>
+            <button class="close-btn" onclick="app.closeServantModal()">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <div class="sheet-content">
+            <form id="servant-form" onsubmit="app.submitServant(event)">
+                <div class="input-group">
+                    <label>Servant Name *</label>
+                    <input type="text" id="new-servant-name" required>
+                </div>
+                <div class="input-group">
+                    <label>Phone (optional)</label>
+                    <input type="tel" id="new-servant-phone">
+                </div>
+                <button type="submit" class="submit-btn">
+                    <span class="material-icons-round">save</span>
+                    Add Servant
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('splash-screen').classList.add('fade-out');
+                document.getElementById('app').style.display = 'flex';
+                setTimeout(() => {
+                    document.getElementById('splash-screen').style.display = 'none';
+                }, 400);
+            }, 1200);
+        });
+    </script>
+</body>
+
+</html>
