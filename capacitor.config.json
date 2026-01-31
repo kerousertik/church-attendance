@@ -1,0 +1,13 @@
+{
+    "appId": "com.stjohn.attendance",
+    "appName": "Attendance",
+    "webDir": "static",
+    "bundledWebRuntime": false,
+    "server": {
+        "androidScheme": "http",
+        "cleartext": true
+    },
+    "android": {
+        "allowMixedContent": true
+    }
+}
