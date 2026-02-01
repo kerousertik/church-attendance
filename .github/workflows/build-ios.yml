@@ -20,13 +20,8 @@ jobs:
       
       - name: Clean and install Capacitor
         run: |
-          # Remove conflicting package.json
           rm -f package.json package-lock.json
-          
-          # Create fresh package.json
           npm init -y
-          
-          # Install latest Capacitor (v8) - all same version
           npm install @capacitor/cli@latest @capacitor/core@latest @capacitor/ios@latest
       
       - name: Initialize Capacitor
@@ -36,15 +31,22 @@ jobs:
       - name: Add iOS platform
         run: |
           npx cap add ios
+          
+      - name: Debug - Show iOS directory structure
+        run: |
+          echo "=== iOS Directory Structure ==="
+          ls -la ios/ || echo "ios/ not found"
+          ls -la ios/App/ || echo "ios/App/ not found"
+          cat ios/App/Podfile || echo "Podfile not found"
       
       - name: Sync web assets
         run: |
           npx cap sync ios
       
-      - name: Install CocoaPods dependencies
+      - name: Install CocoaPods
         run: |
           cd ios/App
-          pod install
+          pod install --repo-update
       
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -65,7 +67,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=NO
           
-          # Create IPA-like bundle
           mkdir -p build/Payload
           cp -r build/Build/Products/Release-iphonesimulator/App.app build/Payload/
           cd build
