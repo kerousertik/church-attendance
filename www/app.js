@@ -2,7 +2,7 @@
 // Works completely standalone without server
 
 const DB_NAME = 'AttendanceDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 class AttendanceApp {
     constructor() {
@@ -35,12 +35,14 @@ class AttendanceApp {
 
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
+                const oldVersion = event.oldVersion;
 
                 // Students store
                 if (!db.objectStoreNames.contains('students')) {
                     const studentsStore = db.createObjectStore('students', { keyPath: 'id', autoIncrement: true });
                     studentsStore.createIndex('name', 'name', { unique: false });
                 }
+                // Note: email field added in v2, no migration needed (just add to new records)
 
                 // Attendance store
                 if (!db.objectStoreNames.contains('attendance')) {
@@ -49,6 +51,7 @@ class AttendanceApp {
                     attendanceStore.createIndex('studentId', 'studentId', { unique: false });
                     attendanceStore.createIndex('dateStudent', ['date', 'studentId'], { unique: true });
                 }
+                // Note: eftikad and liturgy fields added in v2, no migration needed
             };
         });
     }
@@ -114,7 +117,7 @@ class AttendanceApp {
         });
     }
 
-    async saveAttendanceRecord(studentId, date, present) {
+    async saveAttendanceRecord(studentId, date, present, eftikad = false, liturgy = null) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['attendance'], 'readwrite');
             const store = transaction.objectStore('attendance');
@@ -126,9 +129,18 @@ class AttendanceApp {
                 const existing = getRequest.result;
                 if (existing) {
                     existing.present = present;
+                    existing.eftikad = eftikad;
+                    existing.liturgy = liturgy;
                     store.put(existing);
                 } else {
-                    store.add({ studentId, date, present, timestamp: new Date().toISOString() });
+                    store.add({
+                        studentId,
+                        date,
+                        present,
+                        eftikad,
+                        liturgy,
+                        timestamp: new Date().toISOString()
+                    });
                 }
             };
             transaction.oncomplete = () => resolve();
@@ -218,7 +230,16 @@ class AttendanceApp {
 
         container.innerHTML = students.map(s => {
             const isPresent = attendanceMap[s.id];
-            this.attendanceData[s.id] = isPresent;
+            const record = attendance.find(a => a.studentId === s.id);
+            const eftikad = record?.eftikad || false;
+            const liturgy = record?.liturgy || null;
+
+            this.attendanceData[s.id] = {
+                present: isPresent,
+                eftikad: eftikad,
+                liturgy: liturgy
+            };
+
             return `
                 <div class="student-card" id="student-${s.id}">
                     <div class="student-info">
@@ -230,10 +251,31 @@ class AttendanceApp {
                                 onclick="app.markAttendance(${s.id}, true)">
                             <span class="material-icons-round">check</span>
                         </button>
-                        <button class="att-btn absent ${isPresent === false ? 'active' : ''}"
+                        <button class="att-btn absent ${isPresent === false ? 'active' : ''}" 
                                 onclick="app.markAttendance(${s.id}, false)">
                             <span class="material-icons-round">close</span>
                         </button>
+                    </div>
+                    <div class="attendance-details" id="details-${s.id}" style="${isPresent === true ? '' : 'display:none;'}">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="eftikad-${s.id}" ${eftikad ? 'checked' : ''} 
+                                   onchange="app.updateEftikad(${s.id}, this.checked)">
+                            <span>Did Eftikad (Communion)</span>
+                        </label>
+                        <div class="liturgy-options">
+                            <label class="radio-label">
+                                <input type="radio" name="liturgy-${s.id}" value="full" 
+                                       ${liturgy === 'full' ? 'checked' : ''}
+                                       onchange="app.updateLiturgy(${s.id}, 'full')">
+                                <span>Attended Liturgy</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="liturgy-${s.id}" value="sunday_school" 
+                                       ${liturgy === 'sunday_school' ? 'checked' : ''}
+                                       onchange="app.updateLiturgy(${s.id}, 'sunday_school')">
+                                <span>Sunday School Only</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
             `;
@@ -241,20 +283,49 @@ class AttendanceApp {
     }
 
     markAttendance(studentId, present) {
-        this.attendanceData[studentId] = present;
+        if (!this.attendanceData[studentId]) {
+            this.attendanceData[studentId] = {};
+        }
+        this.attendanceData[studentId].present = present;
 
         const card = document.getElementById(`student-${studentId}`);
         card.querySelectorAll('.att-btn').forEach(b => b.classList.remove('active'));
         card.querySelector(present ? '.present' : '.absent').classList.add('active');
+
+        // Show/hide details based on presence
+        const details = document.getElementById(`details-${studentId}`);
+        if (details) {
+            details.style.display = present ? '' : 'none';
+        }
+    }
+
+    updateEftikad(studentId, checked) {
+        if (!this.attendanceData[studentId]) {
+            this.attendanceData[studentId] = {};
+        }
+        this.attendanceData[studentId].eftikad = checked;
+    }
+
+    updateLiturgy(studentId, value) {
+        if (!this.attendanceData[studentId]) {
+            this.attendanceData[studentId] = {};
+        }
+        this.attendanceData[studentId].liturgy = value;
     }
 
     async saveAttendance() {
         const date = document.getElementById('attendance-date').value;
         let count = 0;
 
-        for (const [studentId, present] of Object.entries(this.attendanceData)) {
-            if (present !== undefined) {
-                await this.saveAttendanceRecord(parseInt(studentId), date, present);
+        for (const [studentId, data] of Object.entries(this.attendanceData)) {
+            if (data && data.present !== undefined) {
+                await this.saveAttendanceRecord(
+                    parseInt(studentId),
+                    date,
+                    data.present,
+                    data.eftikad || false,
+                    data.liturgy || null
+                );
                 count++;
             }
         }
@@ -369,6 +440,7 @@ class AttendanceApp {
         document.getElementById('student-name').value = student.name || '';
         document.getElementById('student-grade').value = student.grade || '';
         document.getElementById('student-phone').value = student.phone || '';
+        document.getElementById('student-email').value = student.email || '';
         document.getElementById('student-notes').value = student.notes || '';
         this.showView('add-student');
     }
@@ -380,6 +452,7 @@ class AttendanceApp {
             name: document.getElementById('student-name').value.trim(),
             grade: document.getElementById('student-grade').value,
             phone: document.getElementById('student-phone').value.trim(),
+            email: document.getElementById('student-email').value.trim(),
             notes: document.getElementById('student-notes').value.trim(),
         };
 
@@ -425,17 +498,50 @@ class AttendanceApp {
         const students = await this.getAllStudents();
         const attendance = await this.getAllAttendance();
 
-        const data = { students, attendance, exportedAt: new Date().toISOString() };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
+        // Create student map
+        const studentMap = {};
+        students.forEach(s => studentMap[s.id] = s);
 
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `attendance-export-${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
+        // Prepare data for Excel
+        const excelData = attendance.map(a => {
+            const student = studentMap[a.studentId] || {};
+            return {
+                'Date': a.date,
+                'Student Name': student.name || 'Unknown',
+                'Grade': student.grade || '',
+                'Present': a.present ? 'Yes' : 'No',
+                'Did Eftikad': a.eftikad ? 'Yes' : 'No',
+                'Liturgy': a.liturgy === 'full' ? 'Full Liturgy' : a.liturgy === 'sunday_school' ? 'Sunday School Only' : 'N/A',
+                'Email': student.email || '',
+                'Phone': student.phone || ''
+            };
+        });
 
-        URL.revokeObjectURL(url);
-        this.showToast('Data exported!', 'success');
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelData);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 12 }, // Date
+            { wch: 20 }, // Name
+            { wch: 8 },  // Grade
+            { wch: 10 }, // Present
+            { wch: 12 }, // Eftikad
+            { wch: 20 }, // Liturgy
+            { wch: 25 }, // Email
+            { wch: 15 }  // Phone
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+
+        // Generate filename with date
+        const filename = `attendance-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+
+        // Download
+        XLSX.writeFile(wb, filename);
+
+        this.showToast('Excel report exported!', 'success');
     }
 
     showTodayAttendance() {
@@ -462,6 +568,58 @@ class AttendanceApp {
             toast.classList.remove('show');
             setTimeout(() => toast.remove(), 300);
         }, 3000);
+    }
+
+    // ==================== ANNOUNCEMENTS ====================
+
+    showAnnouncement() {
+        document.getElementById('announcement-modal').style.display = 'flex';
+    }
+
+    closeAnnouncement() {
+        document.getElementById('announcement-modal').style.display = 'none';
+        document.getElementById('announcement-subject').value = '';
+        document.getElementById('announcement-message').value = '';
+    }
+
+    async sendAnnouncement() {
+        const recipients = document.getElementById('announcement-recipients').value;
+        const subject = document.getElementById('announcement-subject').value.trim();
+        const message = document.getElementById('announcement-message').value.trim();
+
+        if (!subject || !message) {
+            this.showToast('Please enter subject and message', 'error');
+            return;
+        }
+
+        const students = await this.getAllStudents();
+        let filtered = students;
+
+        // Filter by grade if needed
+        if (recipients.startsWith('grade-')) {
+            const grade = recipients.split('-')[1];
+            filtered = students.filter(s => s.grade === grade);
+        }
+
+        // Get emails
+        const emails = filtered
+            .filter(s => s.email)
+            .map(s => s.email)
+            .join(',');
+
+        if (!emails) {
+            this.showToast('No students with email addresses found', 'error');
+            return;
+        }
+
+        // Create mailto link
+        const mailtoLink = `mailto:${emails}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+
+        // Open email client
+        window.location.href = mailtoLink;
+
+        this.closeAnnouncement();
+        this.showToast(`Opening email client for ${filtered.length} students`, 'success');
     }
 }
 

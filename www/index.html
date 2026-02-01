@@ -15,6 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -37,6 +38,7 @@
         <header class="app-bar">
             <div class="app-bar-left">
                 <img src="app-icon.png" alt="Logo" class="app-bar-logo">
+                <span style="font-size: 24px; margin-left: -8px;">✝</span>
                 <div class="app-bar-title">
                     <span class="title">Attendance</span>
                     <span class="subtitle" id="current-date"></span>
@@ -104,6 +106,10 @@
                         <button class="admin-btn" onclick="app.showAddStudent()">
                             <span class="material-icons-round">person_add</span>
                             Add Student
+                        </button>
+                        <button class="admin-btn" onclick="app.showAnnouncement()">
+                            <span class="material-icons-round">campaign</span>
+                            Send Announcement
                         </button>
                         <button class="admin-btn danger" onclick="app.clearAllData()">
                             <span class="material-icons-round">delete_forever</span>
@@ -187,6 +193,10 @@
                         <input type="tel" id="student-phone">
                     </div>
                     <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="student-email" placeholder="student@example.com">
+                    </div>
+                    <div class="input-group">
                         <label>Notes</label>
                         <textarea id="student-notes" rows="3"></textarea>
                     </div>
@@ -217,6 +227,41 @@
                 <span>History</span>
             </button>
         </nav>
+    </div>
+
+    <!-- Announcement Modal -->
+    <div id="announcement-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Send Announcement</h2>
+                <button class="modal-close" onclick="app.closeAnnouncement()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>Recipients</label>
+                    <select id="announcement-recipients">
+                        <option value="all">All Students</option>
+                        <option value="grade-6">Grade 6</option>
+                        <option value="grade-7">Grade 7</option>
+                        <option value="grade-8">Grade 8</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Subject</label>
+                    <input type="text" id="announcement-subject" placeholder="Enter subject">
+                </div>
+                <div class="input-group">
+                    <label>Message</label>
+                    <textarea id="announcement-message" rows="6" placeholder="Type your announcement..."></textarea>
+                </div>
+                <button class="submit-btn" onclick="app.sendAnnouncement()">
+                    <span class="material-icons-round">send</span>
+                    Send via Email
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Toast Container -->
