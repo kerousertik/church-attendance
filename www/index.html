@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1f36">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Attendance">
+    <title>Attendance</title>
+    <link rel="icon" type="image/png" href="app-icon.png">
+    <link rel="apple-touch-icon" href="app-icon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-content">
+            <img src="app-icon.png" alt="Cross" class="splash-logo">
+            <h1 class="splash-title">Attendance</h1>
+            <p class="splash-subtitle">St. John the Beloved</p>
+            <div class="splash-loader">
+                <div class="loader-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app" style="display: none;">
+        <!-- Top App Bar -->
+        <header class="app-bar">
+            <div class="app-bar-left">
+                <img src="app-icon.png" alt="Logo" class="app-bar-logo">
+                <div class="app-bar-title">
+                    <span class="title">Attendance</span>
+                    <span class="subtitle" id="current-date"></span>
+                </div>
+            </div>
+            <div class="app-bar-right">
+                <div class="admin-chip" id="admin-chip" onclick="app.toggleAdminMode()">
+                    <span class="material-icons-round">admin_panel_settings</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div id="view-home" class="view active">
+                <div class="stats-row" id="stats-container">
+                    <div class="stat-chip" onclick="app.showAllStudents()">
+                        <span class="material-icons-round">people</span>
+                        <span class="stat-value" id="total-students">--</span>
+                    </div>
+                    <div class="stat-chip success" onclick="app.showTodayAttendance()">
+                        <span class="material-icons-round">check_circle</span>
+                        <span class="stat-value" id="today-present">--</span>
+                    </div>
+                    <div class="stat-chip danger" onclick="app.showTodayAbsent()">
+                        <span class="material-icons-round">cancel</span>
+                        <span class="stat-value" id="today-absent">--</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2 class="section-title">Quick Actions</h2>
+                    <div class="action-grid">
+                        <div class="action-tile" onclick="app.showTakeAttendance()">
+                            <div class="tile-icon primary">
+                                <span class="material-icons-round">how_to_reg</span>
+                            </div>
+                            <span class="tile-label">Take Attendance</span>
+                        </div>
+                        <div class="action-tile" onclick="app.showAllStudents()">
+                            <div class="tile-icon success">
+                                <span class="material-icons-round">groups</span>
+                            </div>
+                            <span class="tile-label">All Students</span>
+                        </div>
+                        <div class="action-tile" onclick="app.showHistory()">
+                            <div class="tile-icon info">
+                                <span class="material-icons-round">history</span>
+                            </div>
+                            <span class="tile-label">History</span>
+                        </div>
+                        <div class="action-tile" onclick="app.exportData()">
+                            <div class="tile-icon warning">
+                                <span class="material-icons-round">download</span>
+                            </div>
+                            <span class="tile-label">Export</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section admin-section" id="admin-actions" style="display:none;">
+                    <h2 class="section-title">Admin Tools</h2>
+                    <div class="admin-buttons">
+                        <button class="admin-btn" onclick="app.showAddStudent()">
+                            <span class="material-icons-round">person_add</span>
+                            Add Student
+                        </button>
+                        <button class="admin-btn danger" onclick="app.clearAllData()">
+                            <span class="material-icons-round">delete_forever</span>
+                            Clear Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Take Attendance View -->
+            <div id="view-attendance" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1>Take Attendance</h1>
+                    <button class="icon-btn success" onclick="app.saveAttendance()" id="save-btn">
+                        <span class="material-icons-round">save</span>
+                    </button>
+                </div>
+                <div class="date-picker">
+                    <input type="date" id="attendance-date" onchange="app.loadAttendanceForDate()">
+                </div>
+                <div class="list-container" id="attendance-list"></div>
+            </div>
+
+            <!-- All Students View -->
+            <div id="view-students" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1>All Students</h1>
+                </div>
+                <div class="search-bar">
+                    <span class="material-icons-round">search</span>
+                    <input type="text" placeholder="Search students..." oninput="app.searchStudents(this.value)">
+                </div>
+                <div class="list-container" id="students-list"></div>
+            </div>
+
+            <!-- History View -->
+            <div id="view-history" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1>Attendance History</h1>
+                </div>
+                <div class="list-container" id="history-list"></div>
+            </div>
+
+            <!-- Add Student View -->
+            <div id="view-add-student" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1 id="add-student-title">Add Student</h1>
+                </div>
+                <form id="student-form" onsubmit="app.saveStudent(event)">
+                    <div class="input-group">
+                        <label>Name *</label>
+                        <input type="text" id="student-name" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Grade</label>
+                        <select id="student-grade">
+                            <option value="">Select</option>
+                            <option value="6">6th Grade</option>
+                            <option value="7">7th Grade</option>
+                            <option value="8">8th Grade</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Phone</label>
+                        <input type="tel" id="student-phone">
+                    </div>
+                    <div class="input-group">
+                        <label>Notes</label>
+                        <textarea id="student-notes" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="submit-btn">
+                        <span class="material-icons-round">save</span>
+                        Save Student
+                    </button>
+                </form>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="app.showHome()">
+                <span class="material-icons-round">home</span>
+                <span>Home</span>
+            </button>
+            <button class="nav-item" onclick="app.showTakeAttendance()">
+                <span class="material-icons-round">how_to_reg</span>
+                <span>Attendance</span>
+            </button>
+            <button class="nav-item" onclick="app.showAllStudents()">
+                <span class="material-icons-round">groups</span>
+                <span>Students</span>
+            </button>
+            <button class="nav-item" onclick="app.showHistory()">
+                <span class="material-icons-round">history</span>
+                <span>History</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('splash-screen').classList.add('fade-out');
+                document.getElementById('app').style.display = 'flex';
+                setTimeout(() => {
+                    document.getElementById('splash-screen').style.display = 'none';
+                }, 400);
+            }, 1000);
+        });
+    </script>
+</body>
+
+</html>
