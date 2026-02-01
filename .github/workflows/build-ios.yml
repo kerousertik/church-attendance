@@ -24,7 +24,6 @@ jobs:
           
       - name: Initialize iOS Platform
         run: |
-          # Ensure ios folder is fresh
           rm -rf ios
           npx cap add ios
       
@@ -42,28 +41,31 @@ jobs:
         with:
           xcode-version: 'latest-stable'
       
-      - name: Build for simulator
+      - name: Build for Real Device (Unsigned)
         run: |
           cd ios/App
           
-          xcodebuild -workspace App.xcworkspace \
+          # Build specifically for ARM64 Device (Not Simulator)
+          # We use 'build' instead of 'archive' to bypass strict signing checks
+          xcodebuild build \
+            -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
-            -sdk iphonesimulator \
+            -sdk iphoneos \
             -derivedDataPath build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            ONLY_ACTIVE_ARCH=NO
+            CODE_SIGNING_ALLOWED=NO
           
+          # Package into IPA structure
           mkdir -p build/Payload
-          cp -r build/Build/Products/Release-iphonesimulator/App.app build/Payload/
+          cp -r build/Build/Products/Release-iphoneos/App.app build/Payload/
           cd build
-          zip -r Attendance-Simulator.ipa Payload
+          zip -r Attendance-Device.ipa Payload
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Attendance-iOS
-          path: ios/App/build/Attendance-Simulator.ipa
+          path: ios/App/build/Attendance-Device.ipa
           retention-days: 30
