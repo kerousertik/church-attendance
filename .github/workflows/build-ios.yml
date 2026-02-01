@@ -18,26 +18,16 @@ jobs:
         with:
           node-version: '22'
       
-      - name: Clean environment
+      - name: Install dependencies
         run: |
-          # Remove ALL existing config to ensure fresh init
-          rm -f package.json package-lock.json capacitor.config.json
-          rm -rf ios android node_modules
-      
-      - name: Install Capacitor
-        run: |
-          npm init -y
-          npm install @capacitor/cli@latest @capacitor/core@latest @capacitor/ios@latest
-      
-      - name: Initialize Capacitor
-        run: |
-          # Fresh initialization
-          npx cap init "Attendance" "com.stjohn.attendance" --web-dir www
-      
-      - name: Add iOS platform
-        run: |
-          npx cap add ios
+          npm install
           
+      - name: Initialize iOS Platform
+        run: |
+          # Ensure ios folder is fresh
+          rm -rf ios
+          npx cap add ios
+      
       - name: Sync web assets
         run: |
           npx cap sync ios
