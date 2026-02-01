@@ -12,7 +12,20 @@
     <link rel="icon" type="image/png" href="/static/app-icon.png">
     <link rel="apple-touch-icon" href="/static/app-icon.png">
     <link rel="manifest" href="/static/manifest.json">
+    <!-- iOS PWA enhancements -->
+    <meta name="apple-mobile-web-app-title" content="Attendance">
+    <link rel="apple-touch-startup-image" href="/static/app-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(reg => console.log('SW registered:', reg.scope))
+                    .catch(err => console.log('SW failed:', err));
+            });
+        }
+    </script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
