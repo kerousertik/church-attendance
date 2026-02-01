@@ -18,10 +18,16 @@ jobs:
         with:
           node-version: '22'
       
-      - name: Install Capacitor dependencies
+      - name: Clean and install Capacitor
         run: |
+          # Remove conflicting package.json
+          rm -f package.json package-lock.json
+          
+          # Create fresh package.json
           npm init -y
-          npm install @capacitor/cli@5 @capacitor/core@5 @capacitor/ios@5
+          
+          # Install latest Capacitor (v8) - all same version
+          npm install @capacitor/cli@latest @capacitor/core@latest @capacitor/ios@latest
       
       - name: Initialize Capacitor
         run: |
@@ -45,11 +51,10 @@ jobs:
         with:
           xcode-version: 'latest-stable'
       
-      - name: Build unsigned IPA
+      - name: Build for simulator
         run: |
           cd ios/App
           
-          # Build for simulator first to verify project works
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
@@ -60,13 +65,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=NO
           
-          # Create app bundle for distribution
+          # Create IPA-like bundle
           mkdir -p build/Payload
           cp -r build/Build/Products/Release-iphonesimulator/App.app build/Payload/
           cd build
           zip -r Attendance-Simulator.ipa Payload
       
-      - name: Upload IPA artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Attendance-iOS
