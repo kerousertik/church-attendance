@@ -21,6 +21,12 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
+          npm install @capacitor/assets --save-dev
+          
+      - name: Generate Assets
+        run: |
+          # Generate icons and splash screens from resources/icon.png and splash.png
+          npx capacitor-assets generate --ios
           
       - name: Initialize iOS Platform
         run: |
@@ -45,8 +51,6 @@ jobs:
         run: |
           cd ios/App
           
-          # Build specifically for ARM64 Device (Not Simulator)
-          # We use 'build' instead of 'archive' to bypass strict signing checks
           xcodebuild build \
             -workspace App.xcworkspace \
             -scheme App \
@@ -57,7 +61,6 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
           
-          # Package into IPA structure
           mkdir -p build/Payload
           cp -r build/Build/Products/Release-iphoneos/App.app build/Payload/
           cd build
