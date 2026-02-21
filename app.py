@@ -4,7 +4,7 @@ from datetime import datetime
 import database as db
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='www', template_folder='www')
 CORS(app)
 
 # Initialize database on startup
@@ -20,8 +20,16 @@ if not os.path.exists(db.DB_FILE):
 
 @app.route('/')
 def index():
-    """Serve the main application page."""
-    return render_template('index.html')
+    """Serve the main application page from the mobile www folder."""
+    return send_file(os.path.join('www', 'index.html'))
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    """Serve static files from the mobile www folder."""
+    file_path = os.path.join('www', filename)
+    if os.path.exists(file_path):
+        return send_file(file_path)
+    return "Not Found", 404
 
 
 @app.route('/api/servants', methods=['GET'])
