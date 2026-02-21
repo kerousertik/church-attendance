@@ -100,12 +100,27 @@
                     </div>
                 </div>
 
+                <div class="section" id="birthday-section" style="display: none;">
+                    <h2 class="section-title">🎂 Upcoming Birthdays</h2>
+                    <div class="list-container" id="birthday-list"></div>
+                </div>
+
                 <div class="section admin-section" id="admin-actions" style="display:none;">
                     <h2 class="section-title">Admin Tools</h2>
                     <div class="admin-buttons">
                         <button class="admin-btn" onclick="app.showAddStudent()">
                             <span class="material-icons-round">person_add</span>
                             Add Student
+                        </button>
+                        <button class="admin-btn" onclick="document.getElementById('import-file').click()">
+                            <span class="material-icons-round">upload_file</span>
+                            Import Excel
+                        </button>
+                        <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none"
+                            onchange="app.importStudents(event)">
+                        <button class="admin-btn" onclick="app.downloadTemplate()">
+                            <span class="material-icons-round">download</span>
+                            Download Template
                         </button>
                         <button class="admin-btn" onclick="app.showAnnouncement()">
                             <span class="material-icons-round">campaign</span>
@@ -155,13 +170,32 @@
                 <div class="list-container" id="students-list"></div>
             </div>
 
-            <!-- History View -->
             <div id="view-history" class="view">
                 <div class="page-header">
                     <button class="back-btn" onclick="app.showHome()">
                         <span class="material-icons-round">arrow_back</span>
                     </button>
                     <h1>Attendance History</h1>
+                </div>
+                <div class="filters-row" style="padding: 0 20px; margin-bottom: 10px; display: flex; gap: 10px;">
+                    <select id="history-year-filter" onchange="app.showHistory()"
+                        style="flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--outline); background: var(--surface);">
+                        <option value="">All Years</option>
+                    </select>
+                    <select id="history-grade-filter" onchange="app.showHistory()"
+                        style="flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--outline); background: var(--surface);">
+                        <option value="">All Grades</option>
+                        <option value="6">Grade 6</option>
+                        <option value="7">Grade 7</option>
+                        <option value="8">Grade 8</option>
+                    </select>
+                </div>
+                <div style="padding: 0 20px; margin-bottom: 15px;">
+                    <button class="submit-btn" onclick="app.exportHistoryData()"
+                        style="width: 100%; border-radius: 12px; padding: 12px;">
+                        <span class="material-icons-round">download</span>
+                        Export Filtered Report
+                    </button>
                 </div>
                 <div class="list-container" id="history-list"></div>
             </div>
@@ -195,6 +229,10 @@
                     <div class="input-group">
                         <label>Email</label>
                         <input type="email" id="student-email" placeholder="student@example.com">
+                    </div>
+                    <div class="input-group">
+                        <label>Birthday</label>
+                        <input type="date" id="student-birthday">
                     </div>
                     <div class="input-group">
                         <label>Notes</label>
