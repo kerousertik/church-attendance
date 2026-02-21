@@ -2,7 +2,7 @@
 // Works completely standalone without server
 
 const DB_NAME = 'AttendanceDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 class AttendanceApp {
     constructor() {
@@ -18,6 +18,7 @@ class AttendanceApp {
         await this.initDB();
         this.updateDate();
         this.updateStats();
+        this.loadBirthdays();
         this.setupEventListeners();
     }
 
@@ -42,7 +43,7 @@ class AttendanceApp {
                     const studentsStore = db.createObjectStore('students', { keyPath: 'id', autoIncrement: true });
                     studentsStore.createIndex('name', 'name', { unique: false });
                 }
-                // Note: email field added in v2, no migration needed (just add to new records)
+                // Note: email field added in v2, birthday added in v3. No migration needed for simple properties.
 
                 // Attendance store
                 if (!db.objectStoreNames.contains('attendance')) {
@@ -200,6 +201,71 @@ class AttendanceApp {
     showHome() {
         this.showView('home');
         this.updateStats();
+        this.loadBirthdays();
+    }
+
+    async loadBirthdays() {
+        const students = await this.getAllStudents();
+        const today = new Date();
+        const todayMonth = today.getMonth() + 1;
+        const todayDate = today.getDate();
+
+        const upcomingBirthdays = [];
+
+        students.forEach(s => {
+            if (!s.birthday) return;
+
+            const parts = s.birthday.split('-');
+            const bMonth = parseInt(parts[1], 10);
+            const bDay = parseInt(parts[2], 10);
+
+            let nextBday = new Date(today.getFullYear(), bMonth - 1, bDay);
+            // If birthday passed this year (and not today), it's next year
+            if (nextBday < today && (bMonth !== todayMonth || bDay !== todayDate)) {
+                nextBday = new Date(today.getFullYear() + 1, bMonth - 1, bDay);
+            }
+
+            // Diff in ms, convert to days
+            const diffTime = nextBday - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            // Show if within 14 days
+            if (diffDays >= 0 && diffDays <= 14) {
+                upcomingBirthdays.push({
+                    student: s,
+                    days: diffDays,
+                    isToday: diffDays === 0 || (bMonth === todayMonth && bDay === todayDate)
+                });
+            }
+        });
+
+        upcomingBirthdays.sort((a, b) => a.days - b.days);
+
+        const section = document.getElementById('birthday-section');
+        const list = document.getElementById('birthday-list');
+
+        if (upcomingBirthdays.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = 'block';
+        list.innerHTML = upcomingBirthdays.map(b => {
+            const subtitle = b.isToday ? '🎉 Today!' : `In ${b.days} day${b.days > 1 ? 's' : ''}`;
+            let bdateStr = '';
+            if (b.student.birthday) {
+                const parts = b.student.birthday.split('-');
+                bdateStr = `${parts[1]}/${parts[2]}`;
+            }
+            return `
+                <div class="student-card">
+                    <div class="student-info">
+                        <span class="student-name">${b.student.name} <span style="color: var(--on-surface-variant); font-size: 0.8rem; font-weight: normal; margin-left: 6px;">(${bdateStr})</span></span>
+                        <span class="student-details" style="color: ${b.isToday ? 'var(--primary)' : 'inherit'}; font-weight: ${b.isToday ? 'bold' : 'normal'}">${subtitle}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     async showTakeAttendance() {
@@ -378,10 +444,45 @@ class AttendanceApp {
     async showHistory() {
         this.showView('history');
 
-        const attendance = await this.getAllAttendance();
+        let attendance = await this.getAllAttendance();
         const students = await this.getAllStudents();
         const studentMap = {};
         students.forEach(s => studentMap[s.id] = s);
+
+        // Populate year filter if empty
+        const yearFilter = document.getElementById('history-year-filter');
+        if (yearFilter.options.length <= 1) {
+            const years = new Set(attendance.map(a => a.date.split('-')[0]));
+            if (years.size > 0) {
+                const sortedYears = Array.from(years).sort().reverse();
+                sortedYears.forEach(y => {
+                    const opt = document.createElement('option');
+                    opt.value = y;
+                    opt.textContent = y;
+                    yearFilter.appendChild(opt);
+                });
+            } else {
+                const currentYear = new Date().getFullYear().toString();
+                const opt = document.createElement('option');
+                opt.value = currentYear;
+                opt.textContent = currentYear;
+                yearFilter.appendChild(opt);
+            }
+        }
+
+        const selectedYear = yearFilter.value;
+        const selectedGrade = document.getElementById('history-grade-filter').value;
+
+        // Filter attendance
+        if (selectedYear) {
+            attendance = attendance.filter(a => a.date.startsWith(selectedYear));
+        }
+        if (selectedGrade) {
+            attendance = attendance.filter(a => {
+                const student = studentMap[a.studentId];
+                return student && student.grade === selectedGrade;
+            });
+        }
 
         // Group by date
         const byDate = {};
@@ -397,7 +498,7 @@ class AttendanceApp {
             container.innerHTML = `
                 <div class="empty-state">
                     <span class="material-icons-round">history</span>
-                    <p>No attendance records yet</p>
+                    <p>No attendance records match the filters</p>
                 </div>
             `;
             return;
@@ -408,7 +509,7 @@ class AttendanceApp {
             const present = records.filter(r => r.present).length;
             const absent = records.filter(r => !r.present).length;
             const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
-                weekday: 'short', month: 'short', day: 'numeric'
+                weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
             });
 
             return `
@@ -421,6 +522,76 @@ class AttendanceApp {
                 </div>
             `;
         }).join('');
+    }
+
+    async exportHistoryData() {
+        let attendance = await this.getAllAttendance();
+        const students = await this.getAllStudents();
+        const studentMap = {};
+        students.forEach(s => studentMap[s.id] = s);
+
+        const selectedYear = document.getElementById('history-year-filter').value;
+        const selectedGrade = document.getElementById('history-grade-filter').value;
+
+        // Filter attendance
+        if (selectedYear) {
+            attendance = attendance.filter(a => a.date.startsWith(selectedYear));
+        }
+        if (selectedGrade) {
+            attendance = attendance.filter(a => {
+                const student = studentMap[a.studentId];
+                return student && student.grade === selectedGrade;
+            });
+        }
+
+        if (attendance.length === 0) {
+            this.showToast('No data to export for these filters', 'warning');
+            return;
+        }
+
+        // Prepare data for Excel
+        const excelData = attendance.map(a => {
+            const student = studentMap[a.studentId] || {};
+            return {
+                'Date': a.date,
+                'Student Name': student.name || 'Unknown',
+                'Grade': student.grade || '',
+                'Present': a.present ? 'Yes' : 'No',
+                'Did Eftikad': a.eftikad ? 'Yes' : 'No',
+                'Liturgy': a.liturgy === 'full' ? 'Full Liturgy' : a.liturgy === 'sunday_school' ? 'Sunday School Only' : 'N/A',
+                'Email': student.email || '',
+                'Birthday': student.birthday || '',
+                'Phone': student.phone || ''
+            };
+        });
+
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelData);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 12 }, // Date
+            { wch: 20 }, // Name
+            { wch: 8 },  // Grade
+            { wch: 10 }, // Present
+            { wch: 12 }, // Eftikad
+            { wch: 20 }, // Liturgy
+            { wch: 25 }, // Email
+            { wch: 12 }, // Birthday
+            { wch: 15 }  // Phone
+        ];
+
+        let title = 'Attendance-Report';
+        if (selectedGrade) title += `-Grade${selectedGrade}`;
+        if (selectedYear) title += `-${selectedYear}`;
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Report');
+
+        const filename = `${title}.xlsx`;
+        XLSX.writeFile(wb, filename);
+
+        this.showToast('Filtered report exported!', 'success');
     }
 
     showAddStudent() {
@@ -441,6 +612,7 @@ class AttendanceApp {
         document.getElementById('student-grade').value = student.grade || '';
         document.getElementById('student-phone').value = student.phone || '';
         document.getElementById('student-email').value = student.email || '';
+        document.getElementById('student-birthday').value = student.birthday || '';
         document.getElementById('student-notes').value = student.notes || '';
         this.showView('add-student');
     }
@@ -453,6 +625,7 @@ class AttendanceApp {
             grade: document.getElementById('student-grade').value,
             phone: document.getElementById('student-phone').value.trim(),
             email: document.getElementById('student-email').value.trim(),
+            birthday: document.getElementById('student-birthday').value,
             notes: document.getElementById('student-notes').value.trim(),
         };
 
@@ -513,6 +686,7 @@ class AttendanceApp {
                 'Did Eftikad': a.eftikad ? 'Yes' : 'No',
                 'Liturgy': a.liturgy === 'full' ? 'Full Liturgy' : a.liturgy === 'sunday_school' ? 'Sunday School Only' : 'N/A',
                 'Email': student.email || '',
+                'Birthday': student.birthday || '',
                 'Phone': student.phone || ''
             };
         });
@@ -530,6 +704,7 @@ class AttendanceApp {
             { wch: 12 }, // Eftikad
             { wch: 20 }, // Liturgy
             { wch: 25 }, // Email
+            { wch: 12 }, // Birthday
             { wch: 15 }  // Phone
         ];
 
@@ -620,6 +795,81 @@ class AttendanceApp {
 
         this.closeAnnouncement();
         this.showToast(`Opening email client for ${filtered.length} students`, 'success');
+    }
+
+    // ==================== IMPORT ====================
+
+    async importStudents(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            let imported = 0;
+            let skipped = 0;
+
+            for (const row of jsonData) {
+                // Expected columns: Name, Grade, Phone, Email, Birthday, Notes
+                const name = row['Name'] || row['name'] || row['Student Name'];
+
+                if (!name || !name.trim()) {
+                    skipped++;
+                    continue;
+                }
+
+                const student = {
+                    name: name.trim(),
+                    grade: String(row['Grade'] || row['grade'] || ''),
+                    phone: String(row['Phone'] || row['phone'] || ''),
+                    email: String(row['Email'] || row['email'] || ''),
+                    birthday: String(row['Birthday'] || row['birthday'] || row['DOB'] || ''),
+                    notes: String(row['Notes'] || row['notes'] || '')
+                };
+
+                await this.addStudent(student);
+                imported++;
+            }
+
+            this.showToast(`Imported ${imported} students! (${skipped} skipped)`, 'success');
+            this.updateStats();
+
+            // Reset file input
+            event.target.value = '';
+        } catch (error) {
+            console.error('Import error:', error);
+            this.showToast('Error importing file. Please check format.', 'error');
+        }
+    }
+
+    downloadTemplate() {
+        // Create sample template
+        const template = [
+            { Name: 'John Doe', Grade: '6', Phone: '555-1234', Email: 'john@example.com', Birthday: '2010-05-15', Notes: 'Sample student' },
+            { Name: 'Jane Smith', Grade: '7', Phone: '555-5678', Email: 'jane@example.com', Birthday: '', Notes: '' }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(template);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 20 }, // Name
+            { wch: 8 },  // Grade
+            { wch: 15 }, // Phone
+            { wch: 25 }, // Email
+            { wch: 12 }, // Birthday
+            { wch: 30 }  // Notes
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Students');
+        XLSX.writeFile(wb, 'student-import-template.xlsx');
+
+        this.showToast('Template downloaded!', 'success');
     }
 }
 
