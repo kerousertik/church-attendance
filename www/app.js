@@ -779,22 +779,38 @@ class AttendanceApp {
         // Get emails
         const emails = filtered
             .filter(s => s.email)
-            .map(s => s.email)
-            .join(',');
+            .map(s => s.email);
 
-        if (!emails) {
+        if (emails.length === 0) {
             this.showToast('No students with email addresses found', 'error');
             return;
         }
 
-        // Create mailto link
-        const mailtoLink = `mailto:${emails}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+        // Send via backend API
+        try {
+            this.showToast('Sending announcement...', 'info');
+            const response = await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    subject: subject,
+                    message: message,
+                    recipients: emails
+                })
+            });
 
-        // Open email client
-        window.location.href = mailtoLink;
+            const data = await response.json();
 
-        this.closeAnnouncement();
-        this.showToast(`Opening email client for ${filtered.length} students`, 'success');
+            if (response.ok) {
+                this.showToast(`Announcement sent securely to ${data.count} students!`, 'success');
+                this.closeAnnouncement();
+            } else {
+                throw new Error(data.error || 'Failed to send email');
+            }
+        } catch (error) {
+            console.error('Email error:', error);
+            this.showToast(`Error: ${error.message}`, 'error');
+        }
     }
 
     // ==================== IMPORT ====================

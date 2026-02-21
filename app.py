@@ -3,9 +3,17 @@ from flask_cors import CORS
 from datetime import datetime
 import database as db
 import os
+import smtplib
+from email.message import EmailMessage
 
 app = Flask(__name__, static_folder='www', template_folder='www')
 CORS(app)
+
+# Email Configuration (To be provided by the user)
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 465
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "") 
+SENDER_PASSWORD = os.environ.get("SENDER_PASSWORD", "") # e.g. Gmail App Password
 
 # Initialize database on startup
 if not os.path.exists(db.DB_FILE):
@@ -31,6 +39,38 @@ def serve_static(filename):
         return send_file(file_path)
     return "Not Found", 404
 
+@app.route('/api/send-email', methods=['POST'])
+def send_email():
+    """Send an automated background email to selected recipients."""
+    data = request.json
+    subject = data.get('subject')
+    message_body = data.get('message')
+    recipients = data.get('recipients', []) # List of email addresses
+
+    if not subject or not message_body or not recipients:
+        return jsonify({'error': 'Missing subject, message, or recipients'}), 400
+    
+    if not SENDER_EMAIL or not SENDER_PASSWORD:
+        return jsonify({'error': 'Email server not configured. Please set SENDER_EMAIL and SENDER_PASSWORD.'}), 500
+
+    try:
+        # Create the email
+        msg = EmailMessage()
+        msg.set_content(message_body)
+        msg['Subject'] = subject
+        msg['From'] = SENDER_EMAIL
+        msg['Bcc'] = ", ".join(recipients) # Send as BCC for privacy
+
+        # Connect to SMTP server and send
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.send_message(msg)
+
+        return jsonify({'success': True, 'count': len(recipients)})
+    except smtplib.SMTPAuthenticationError:
+        return jsonify({'error': 'SMTP Authentication failed. Check your App Password.'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Failed to send email: {str(e)}'}), 500
 
 @app.route('/api/servants', methods=['GET'])
 def get_servants():
