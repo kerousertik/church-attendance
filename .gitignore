@@ -61,3 +61,4 @@ jdk-*/
 *.bak
 gradle_log.txt
 error.txt
+.env

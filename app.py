@@ -5,11 +5,15 @@ import database as db
 import os
 import smtplib
 from email.message import EmailMessage
+from dotenv import load_dotenv
+
+# Load variables from .env file
+load_dotenv()
 
 app = Flask(__name__, static_folder='www', template_folder='www')
 CORS(app)
 
-# Email Configuration (To be provided by the user)
+# Email Configuration (Loaded from .env file)
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 465
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "") 
