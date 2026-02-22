@@ -118,7 +118,7 @@ class AttendanceApp {
         });
     }
 
-    async saveAttendanceRecord(studentId, date, present, eftikad = false, liturgy = null) {
+    async saveAttendanceRecord(studentId, date, present, liturgy = null) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['attendance'], 'readwrite');
             const store = transaction.objectStore('attendance');
@@ -130,7 +130,6 @@ class AttendanceApp {
                 const existing = getRequest.result;
                 if (existing) {
                     existing.present = present;
-                    existing.eftikad = eftikad;
                     existing.liturgy = liturgy;
                     store.put(existing);
                 } else {
@@ -138,7 +137,6 @@ class AttendanceApp {
                         studentId,
                         date,
                         present,
-                        eftikad,
                         liturgy,
                         timestamp: new Date().toISOString()
                     });
@@ -297,12 +295,10 @@ class AttendanceApp {
         container.innerHTML = students.map(s => {
             const isPresent = attendanceMap[s.id];
             const record = attendance.find(a => a.studentId === s.id);
-            const eftikad = record?.eftikad || false;
             const liturgy = record?.liturgy || null;
 
             this.attendanceData[s.id] = {
                 present: isPresent,
-                eftikad: eftikad,
                 liturgy: liturgy
             };
 
@@ -322,13 +318,8 @@ class AttendanceApp {
                             <span class="material-icons-round">close</span>
                         </button>
                     </div>
-                    <div class="attendance-details" id="details-${s.id}" style="${isPresent === true ? '' : 'display:none;'}">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="eftikad-${s.id}" ${eftikad ? 'checked' : ''} 
-                                   onchange="app.updateEftikad(${s.id}, this.checked)">
-                            <span>Did Eftikad (Communion)</span>
-                        </label>
-                        <div class="liturgy-options">
+                    <div class="attendance-details" id="details-${s.id}" style="${isPresent === true ? '' : 'display:none; margin-top: 10px;'}">
+                        <div class="liturgy-options" style="display: flex; gap: 15px;">
                             <label class="radio-label">
                                 <input type="radio" name="liturgy-${s.id}" value="full" 
                                        ${liturgy === 'full' ? 'checked' : ''}
@@ -365,13 +356,6 @@ class AttendanceApp {
         }
     }
 
-    updateEftikad(studentId, checked) {
-        if (!this.attendanceData[studentId]) {
-            this.attendanceData[studentId] = {};
-        }
-        this.attendanceData[studentId].eftikad = checked;
-    }
-
     updateLiturgy(studentId, value) {
         if (!this.attendanceData[studentId]) {
             this.attendanceData[studentId] = {};
@@ -389,7 +373,6 @@ class AttendanceApp {
                     parseInt(studentId),
                     date,
                     data.present,
-                    data.eftikad || false,
                     data.liturgy || null
                 );
                 count++;
@@ -506,18 +489,42 @@ class AttendanceApp {
 
         container.innerHTML = dates.map(date => {
             const records = byDate[date];
-            const present = records.filter(r => r.present).length;
-            const absent = records.filter(r => !r.present).length;
+            const presentRecords = records.filter(r => r.present);
+            const absentRecords = records.filter(r => !r.present);
+
+            const presentNames = presentRecords.map(r => {
+                const name = studentMap[r.studentId]?.name || 'Unknown';
+                const details = r.liturgy === 'full' ? ' (Liturgy)' : r.liturgy === 'sunday_school' ? ' (Sunday School)' : '';
+                return `<li>${name}${details}</li>`;
+            }).join('');
+
+            const absentNames = absentRecords.map(r => {
+                const name = studentMap[r.studentId]?.name || 'Unknown';
+                return `<li>${name}</li>`;
+            }).join('');
+
             const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
                 weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
             });
 
             return `
-                <div class="history-card">
-                    <div class="history-date">${dateStr}</div>
-                    <div class="history-stats">
-                        <span class="present-count">✓ ${present}</span>
-                        <span class="absent-count">✗ ${absent}</span>
+                <div class="history-card" style="flex-direction: column; align-items: flex-start; gap: 10px;">
+                    <div class="history-date" style="width: 100%; border-bottom: 1px solid var(--outline); padding-bottom: 8px; margin-bottom: 8px;">
+                        ${dateStr}
+                    </div>
+                    <div class="history-details" style="width: 100%; display: flex; flex-direction: column; gap: 15px;">
+                        <div class="present-list">
+                            <div style="color: var(--success); font-weight: 600; margin-bottom: 4px;">✓ Present (${presentRecords.length})</div>
+                            <ul style="margin: 0; padding-left: 20px; font-size: 0.9rem; color: var(--on-surface);">
+                                ${presentNames || '<li>None</li>'}
+                            </ul>
+                        </div>
+                        <div class="absent-list">
+                            <div style="color: var(--danger); font-weight: 600; margin-bottom: 4px;">✗ Absent (${absentRecords.length})</div>
+                            <ul style="margin: 0; padding-left: 20px; font-size: 0.9rem; color: var(--on-surface);">
+                                ${absentNames || '<li>None</li>'}
+                            </ul>
+                        </div>
                     </div>
                 </div>
             `;
@@ -557,7 +564,6 @@ class AttendanceApp {
                 'Student Name': student.name || 'Unknown',
                 'Grade': student.grade || '',
                 'Present': a.present ? 'Yes' : 'No',
-                'Did Eftikad': a.eftikad ? 'Yes' : 'No',
                 'Liturgy': a.liturgy === 'full' ? 'Full Liturgy' : a.liturgy === 'sunday_school' ? 'Sunday School Only' : 'N/A',
                 'Email': student.email || '',
                 'Birthday': student.birthday || '',
@@ -575,7 +581,6 @@ class AttendanceApp {
             { wch: 20 }, // Name
             { wch: 8 },  // Grade
             { wch: 10 }, // Present
-            { wch: 12 }, // Eftikad
             { wch: 20 }, // Liturgy
             { wch: 25 }, // Email
             { wch: 12 }, // Birthday
@@ -683,7 +688,6 @@ class AttendanceApp {
                 'Student Name': student.name || 'Unknown',
                 'Grade': student.grade || '',
                 'Present': a.present ? 'Yes' : 'No',
-                'Did Eftikad': a.eftikad ? 'Yes' : 'No',
                 'Liturgy': a.liturgy === 'full' ? 'Full Liturgy' : a.liturgy === 'sunday_school' ? 'Sunday School Only' : 'N/A',
                 'Email': student.email || '',
                 'Birthday': student.birthday || '',
@@ -701,7 +705,6 @@ class AttendanceApp {
             { wch: 20 }, // Name
             { wch: 8 },  // Grade
             { wch: 10 }, // Present
-            { wch: 12 }, // Eftikad
             { wch: 20 }, // Liturgy
             { wch: 25 }, // Email
             { wch: 12 }, // Birthday
@@ -826,7 +829,12 @@ class AttendanceApp {
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+            const existingStudents = await this.getAllStudents();
+            const duplicateMap = {};
+            existingStudents.forEach(s => duplicateMap[s.name.toLowerCase()] = s);
+
             let imported = 0;
+            let updated = 0;
             let skipped = 0;
 
             for (const row of jsonData) {
@@ -838,8 +846,11 @@ class AttendanceApp {
                     continue;
                 }
 
-                const student = {
-                    name: name.trim(),
+                const cleanName = name.trim();
+                const existing = duplicateMap[cleanName.toLowerCase()];
+
+                const studentData = {
+                    name: cleanName,
                     grade: String(row['Grade'] || row['grade'] || ''),
                     phone: String(row['Phone'] || row['phone'] || ''),
                     email: String(row['Email'] || row['email'] || ''),
@@ -847,11 +858,17 @@ class AttendanceApp {
                     notes: String(row['Notes'] || row['notes'] || '')
                 };
 
-                await this.addStudent(student);
-                imported++;
+                if (existing) {
+                    studentData.id = existing.id;
+                    await this.updateStudent(studentData);
+                    updated++;
+                } else {
+                    await this.addStudent(studentData);
+                    imported++;
+                }
             }
 
-            this.showToast(`Imported ${imported} students! (${skipped} skipped)`, 'success');
+            this.showToast(`Import completed: ${imported} added, ${updated} updated! (${skipped} skipped)`, 'success');
             this.updateStats();
 
             // Reset file input
