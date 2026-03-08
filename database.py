@@ -151,14 +151,28 @@ def get_students(servant: Optional[str] = None, grade: Optional[int] = None, gen
         params.append(grade)
     
     if gender:
-        query += " AND gender = ?"
-        params.append(gender)
+        # Normalize gender: frontend sends M/F, DB may store Boy/Girl or M/F
+        gender_variants = [gender]
+        g_lower = gender.lower()
+        if g_lower in ('m', 'male', 'boy', 'boys'):
+            gender_variants = ['M', 'Boy', 'Boys', 'Male', 'male', 'boy']
+        elif g_lower in ('f', 'female', 'girl', 'girls'):
+            gender_variants = ['F', 'Girl', 'Girls', 'Female', 'female', 'girl']
+        placeholders = ','.join(['?' for _ in gender_variants])
+        query += f" AND gender IN ({placeholders})"
+        params.extend(gender_variants)
     
     cursor.execute(query, params)
     
     students = []
     for row in cursor.fetchall():
         student = dict(row)
+        # Normalize gender to M/F for frontend consistency
+        g = (student.get('gender') or '').lower()
+        if g in ('boy', 'boys', 'male'):
+            student['gender'] = 'M'
+        elif g in ('girl', 'girls', 'female'):
+            student['gender'] = 'F'
         student['alert_level'] = get_alert_level(student['id'])
         student['consecutive_absences'] = get_consecutive_absences(student['id'])
         students.append(student)
@@ -489,6 +503,12 @@ def get_students_by_servant(servant: str) -> List[Dict]:
     students = []
     for row in cursor.fetchall():
         student = dict(row)
+        # Normalize gender to M/F for frontend consistency
+        g = (student.get('gender') or '').lower()
+        if g in ('boy', 'boys', 'male'):
+            student['gender'] = 'M'
+        elif g in ('girl', 'girls', 'female'):
+            student['gender'] = 'F'
         student['alert_level'] = get_alert_level(student['id'])
         student['consecutive_absences'] = get_consecutive_absences(student['id'])
         students.append(student)
