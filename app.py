@@ -5,10 +5,11 @@ import database as db
 import os
 import smtplib
 from email.message import EmailMessage
-from dotenv import load_dotenv
-
-# Load variables from .env file
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("python-dotenv not found. Assuming environment variables are provided by the host.")
 
 app = Flask(__name__, static_folder='www', template_folder='www')
 CORS(app)
