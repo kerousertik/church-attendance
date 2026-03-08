@@ -23,6 +23,8 @@ SENDER_PASSWORD = os.environ.get("SENDER_PASSWORD", "") # e.g. Gmail App Passwor
 if not os.path.exists(db.DB_FILE):
     db.init_db()
     # Import from Excel if file exists
+    # When deployed on Render, this hardcoded Windows path won't exist, which is fine, 
+    # it will just start an empty DB
     excel_path = r"c:\Users\kokon\Downloads\+Middle School Data Sheet+.xlsx"
     if os.path.exists(excel_path):
         db.import_from_excel(excel_path)

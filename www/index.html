@@ -45,8 +45,8 @@
                 </div>
             </div>
             <div class="app-bar-right">
-                <div class="admin-chip" id="admin-chip" onclick="app.toggleAdminMode()">
-                    <span class="material-icons-round">admin_panel_settings</span>
+                <div class="admin-chip" id="admin-chip" onclick="app.toggleAdminMode()" title="Toggle Admin Mode">
+                    <span class="material-icons-round" id="admin-icon">lock</span>
                 </div>
             </div>
         </header>
@@ -97,7 +97,25 @@
                             </div>
                             <span class="tile-label">Export</span>
                         </div>
+                        <div class="action-tile" onclick="app.showAbsenceAlerts()">
+                            <div class="tile-icon danger">
+                                <span class="material-icons-round">notification_important</span>
+                            </div>
+                            <span class="tile-label">Absence Alerts</span>
+                        </div>
                     </div>
+                </div>
+
+                <div class="section" id="absence-alerts-section" style="display: none;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h2 class="section-title" style="margin: 0;">⚠️ Absence Alerts</h2>
+                        <button class="text-btn" onclick="app.showAbsenceAlerts()"
+                            style="color: var(--primary); font-weight: 600; font-size: 0.85rem; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            See All <span class="material-icons-round" style="font-size: 16px;">arrow_forward</span>
+                        </button>
+                    </div>
+                    <div class="list-container" id="absence-alerts-list"></div>
                 </div>
 
                 <div class="section" id="birthday-section" style="display: none;">
@@ -112,6 +130,10 @@
                             <span class="material-icons-round">person_add</span>
                             Add Student
                         </button>
+                        <button class="admin-btn" onclick="app.showAddServant('home')">
+                            <span class="material-icons-round">group_add</span>
+                            Add Servant
+                        </button>
                         <button class="admin-btn" onclick="document.getElementById('import-file').click()">
                             <span class="material-icons-round">upload_file</span>
                             Import Excel
@@ -120,15 +142,16 @@
                             onchange="app.importStudents(event)">
                         <button class="admin-btn" onclick="app.downloadTemplate()">
                             <span class="material-icons-round">download</span>
-                            Download Template
+                            Template
                         </button>
                         <button class="admin-btn" onclick="app.showAnnouncement()">
                             <span class="material-icons-round">campaign</span>
-                            Send Announcement
+                            Announce
                         </button>
+
                         <button class="admin-btn danger" onclick="app.clearAllData()">
                             <span class="material-icons-round">delete_forever</span>
-                            Clear Data
+                            Clear All
                         </button>
                     </div>
                 </div>
@@ -137,20 +160,32 @@
             <!-- Take Attendance View -->
             <div id="view-attendance" class="view">
                 <div class="page-header">
-                    <button class="back-btn" onclick="app.showHome()">
+                    <button class="back-btn" onclick="app.showSelectFilter('attendance')">
                         <span class="material-icons-round">arrow_back</span>
                     </button>
                     <header>
                         <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
                             <img src="app-icon.png" alt="Logo" style="width: 40px; height: 40px; border-radius: 8px;">
-                            <h1>St. John Attendance</h1>
+                            <h1>Attendance</h1>
                         </div>
-                    </header> <button class="icon-btn success" onclick="app.saveAttendance()" id="save-btn">
-                        <span class="material-icons-round">save</span>
-                    </button>
+                    </header>
                 </div>
-                <div class="date-picker">
+                <div class="date-picker" style="margin-bottom: 5px;">
                     <input type="date" id="attendance-date" onchange="app.loadAttendanceForDate()">
+                </div>
+
+                <div class="bulk-actions"
+                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 20px 15px 20px;">
+                    <button class="bulk-btn" onclick="app.markAllPresent()"
+                        style="background: var(--success); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 0.85rem;">
+                        <span class="material-icons-round"
+                            style="font-size: 18px; vertical-align: middle;">check_circle</span> ALL PRESENT
+                    </button>
+                    <button class="bulk-btn" onclick="app.markAllAbsent()"
+                        style="background: var(--error); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 0.85rem;">
+                        <span class="material-icons-round"
+                            style="font-size: 18px; vertical-align: middle;">cancel</span> ALL ABSENT
+                    </button>
                 </div>
                 <div class="list-container" id="attendance-list"></div>
             </div>
@@ -158,7 +193,7 @@
             <!-- All Students View -->
             <div id="view-students" class="view">
                 <div class="page-header">
-                    <button class="back-btn" onclick="app.showHome()">
+                    <button class="back-btn" onclick="app.showSelectFilter('students')">
                         <span class="material-icons-round">arrow_back</span>
                     </button>
                     <h1>All Students</h1>
@@ -200,6 +235,52 @@
                 <div class="list-container" id="history-list"></div>
             </div>
 
+            <!-- Select Filter View -->
+            <div id="view-select-filter" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1 id="filter-view-title">Select Section</h1>
+                </div>
+
+                <div style="padding: 20px;">
+                    <h3 style="margin-bottom: 15px; color: var(--on-surface-variant);">1. Choose Grade</h3>
+                    <div class="filter-grid" id="grade-filter-grid"
+                        style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 25px;">
+                        <button class="filter-chip" onclick="app.setFilterGrade('6', this)">6th Grade</button>
+                        <button class="filter-chip" onclick="app.setFilterGrade('7', this)">7th Grade</button>
+                        <button class="filter-chip" onclick="app.setFilterGrade('8', this)">8th Grade</button>
+                        <button class="filter-chip" onclick="app.setFilterGrade('All', this)">Both Grades</button>
+                    </div>
+
+                    <h3 style="margin-bottom: 15px; color: var(--on-surface-variant);">2. Choose Section</h3>
+                    <div class="filter-grid" id="gender-filter-grid"
+                        style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 30px;">
+                        <button class="filter-chip" onclick="app.setFilterGender('Boy', this)">Boys</button>
+                        <button class="filter-chip" onclick="app.setFilterGender('Girl', this)">Girls</button>
+                        <button class="filter-chip" onclick="app.setFilterGender('All', this)"
+                            style="grid-column: span 2;">Both Boys & Girls</button>
+                    </div>
+
+                    <button class="submit-btn" onclick="app.applyFilters()"
+                        style="width: 100%; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 1rem;">
+                        <span class="material-icons-round">arrow_forward</span> SHOW STUDENTS
+                    </button>
+                </div>
+            </div>
+
+            <!-- Full Absence Alerts View -->
+            <div id="view-absence-alerts" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1>Absence Warnings</h1>
+                </div>
+                <div class="list-container" id="full-absence-alerts-list"></div>
+            </div>
+
             <!-- Add Student View -->
             <div id="view-add-student" class="view">
                 <div class="page-header">
@@ -223,6 +304,14 @@
                         </select>
                     </div>
                     <div class="input-group">
+                        <label>Gender / Section</label>
+                        <select id="student-gender">
+                            <option value="">Select</option>
+                            <option value="Boy">Boy</option>
+                            <option value="Girl">Girl</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
                         <label>Phone</label>
                         <input type="tel" id="student-phone">
                     </div>
@@ -235,12 +324,84 @@
                         <input type="date" id="student-birthday">
                     </div>
                     <div class="input-group">
+                        <label>Assigned Servant</label>
+                        <select id="student-servant">
+                            <option value="">None</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Address</label>
+                        <textarea id="student-address" rows="2" placeholder="Street, City, Zip"></textarea>
+                    </div>
+                    <div class="input-group">
                         <label>Notes</label>
-                        <textarea id="student-notes" rows="3"></textarea>
+                        <textarea id="student-notes" rows="2"></textarea>
                     </div>
                     <button type="submit" class="submit-btn">
                         <span class="material-icons-round">save</span>
                         Save Student
+                    </button>
+                </form>
+            </div>
+            <!-- Servants View -->
+            <div id="view-servants" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1>Servants</h1>
+                </div>
+                <div class="search-bar">
+                    <span class="material-icons-round">search</span>
+                    <input type="text" placeholder="Search servants..." oninput="app.searchServants(this.value)">
+                </div>
+                <div class="admin-section" id="servants-admin-actions" style="display:none; padding: 0 20px 15px;">
+                    <button class="submit-btn" onclick="app.showAddServant()"
+                        style="width: 100%; border-radius: 12px; padding: 12px;">
+                        <span class="material-icons-round">person_add</span>
+                        Add Servant
+                    </button>
+                </div>
+                <!-- Action Buttons: Save and History -->
+                <div style="padding: 0 20px 15px; display: flex; gap: 10px;">
+                    <button class="submit-btn success" onclick="app.saveServantEftikad()"
+                        style="flex: 1; border-radius: 12px; padding: 12px; margin: 0;">
+                        <span class="material-icons-round">save</span>
+                        Save Tracker
+                    </button>
+                    <button class="submit-btn" onclick="app.showServantHistory()"
+                        style="flex: 1; border-radius: 12px; padding: 12px; margin: 0; background: var(--surface-container-high); color: var(--on-surface);">
+                        <span class="material-icons-round">history</span>
+                        Visit History
+                    </button>
+                </div>
+                <div class="list-container" id="servants-list"></div>
+            </div>
+
+            <!-- Add Servant View -->
+            <div id="view-add-servant" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showServants()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1 id="add-servant-title">Add Servant</h1>
+                </div>
+                <form id="servant-form" onsubmit="app.saveServant(event)">
+                    <div class="input-group">
+                        <label>Name *</label>
+                        <input type="text" id="servant-name" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Phone</label>
+                        <input type="tel" id="servant-phone">
+                    </div>
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="servant-email">
+                    </div>
+                    <button type="submit" class="submit-btn" style="margin-top: 15px;">
+                        <span class="material-icons-round">save</span>
+                        Save Servant
                     </button>
                 </form>
             </div>
@@ -263,6 +424,10 @@
             <button class="nav-item" onclick="app.showHistory()">
                 <span class="material-icons-round">history</span>
                 <span>History</span>
+            </button>
+            <button class="nav-item" onclick="app.showServants()">
+                <span class="material-icons-round">volunteer_activism</span>
+                <span>Servants</span>
             </button>
         </nav>
     </div>
@@ -304,6 +469,23 @@
 
     <!-- Toast Container -->
     <div id="toast-container"></div>
+
+    <!-- Servant History Modal -->
+    <div id="servant-history-modal" class="modal-overlay">
+        <div class="bottom-sheet large" id="servant-history-sheet">
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <h2>Servant Visit History</h2>
+                <button class="close-btn"
+                    onclick="document.getElementById('servant-history-modal').classList.remove('active')">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="sheet-content">
+                <div id="servant-history-list" style="display: flex; flex-direction: column; gap: 16px;"></div>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
     <script>
