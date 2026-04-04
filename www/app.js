@@ -432,7 +432,7 @@ class AttendanceApp {
             // Get all attendance records for this student, sorted newest first
             const studentRecords = allAttendance
                 .filter(a => a.studentId === student.id)
-                .sort((a, b) => new Date(b.date) - new Date(a.date));
+                .sort((a, b) => new Date(b.date.replace(/-/g, '/')) - new Date(a.date.replace(/-/g, '/')));
 
             // Count consecutive absences from most recent record
             let consecutiveAbsences = 0;
@@ -440,7 +440,7 @@ class AttendanceApp {
 
             for (const record of studentRecords) {
                 if (record.present === true || record.present === 'true') {
-                    lastPresentDate = new Date(record.date);
+                    lastPresentDate = new Date(record.date.replace(/-/g, '/'));
                     break;
                 } else {
                     consecutiveAbsences++;
@@ -657,7 +657,7 @@ class AttendanceApp {
                     const unreadDot = r.is_read === 0 
                         ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--danger);margin-right:8px;"></span>' 
                         : '';
-                    const dateObj = new Date(r.submitted_at);
+                    const dateObj = new Date(r.submitted_at.replace(' ', 'T').replace(/-/g, '/'));
                     const timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
                     return `
@@ -1456,7 +1456,7 @@ class AttendanceApp {
 
         list.innerHTML = dates.map(date => {
             const records = byDate[date];
-            const displayDate = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+            const displayDate = new Date(date.replace(/-/g, '/') + ' 12:00:00').toLocaleDateString('en-US', {
                 weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
             });
 
@@ -1670,7 +1670,7 @@ class AttendanceApp {
                 return `<li>${name}</li>`;
             }).join('');
 
-            const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+            const dateStr = new Date(date.replace(/-/g, '/') + ' 12:00:00').toLocaleDateString('en-US', {
                 weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
             });
 
