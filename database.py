@@ -1,15 +1,21 @@
 import sqlite3
 import pandas as pd
+import hashlib
+import secrets
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 DB_FILE = "attendance.db"
 
+def hash_password(password: str) -> str:
+    """Hash a password using SHA-256."""
+    return hashlib.sha256(password.encode()).hexdigest()
+
 def init_db():
-    """Initialize the database with required tables."""
+    """Initialize the database with required tables. Always ensures tables exist."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    
+
     # Students table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS students (
@@ -27,7 +33,7 @@ def init_db():
             last_call TEXT
         )
     ''')
-    
+
     # Attendance table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS attendance (
@@ -35,12 +41,12 @@ def init_db():
             student_id INTEGER NOT NULL,
             date TEXT NOT NULL,
             status TEXT NOT NULL,
-            FOREIGN KEY (student_id) REFERENCES students(id),
-            UNIQUE(student_id, date)
+            UNIQUE(student_id, date),
+            FOREIGN KEY (student_id) REFERENCES students(id)
         )
     ''')
-    
-    # Servants table (for standalone servants not yet assigned to students)
+
+    # Servants table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS servants (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,8 +54,8 @@ def init_db():
             phone TEXT
         )
     ''')
-    
-    # Notes table (for kid notes)
+
+    # Notes table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS notes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,9 +66,249 @@ def init_db():
             FOREIGN KEY (student_id) REFERENCES students(id)
         )
     ''')
-    
+
+    # Users table for authentication
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT \'user\',
+            created_at TEXT NOT NULL DEFAULT (datetime(\'now\'))
+        )
+    ''')
+
+    # Add created_at column to users table if it doesn't exist (migration)
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN created_at TEXT NOT NULL DEFAULT (datetime('now'))")
+    except:
+        pass  # Column already exists
+
+    # Seed default admin if no users exist
+    cursor.execute("SELECT COUNT(*) FROM users")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            ('STJOHN', hash_password('Pray#1'), 'admin')
+        )
+        cursor.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            ('user', hash_password('user123'), 'user')
+        )
+
     conn.commit()
     conn.close()
+
+# ==================== SERVANT REPORTS ====================
+
+def submit_servant_report(servant_username: str, report_type: str, date: str,
+                           total: int, present: int, absent: int, notes: str = '') -> int:
+    """Log a servant attendance or eftikad submission."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    # Ensure table exists
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS servant_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            servant_username TEXT NOT NULL,
+            report_type TEXT NOT NULL DEFAULT 'attendance',
+            date TEXT NOT NULL,
+            total_count INTEGER DEFAULT 0,
+            present_count INTEGER DEFAULT 0,
+            absent_count INTEGER DEFAULT 0,
+            notes TEXT DEFAULT '',
+            submitted_at TEXT NOT NULL,
+            is_read INTEGER NOT NULL DEFAULT 0
+        )
+    ''')
+    submitted_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    cursor.execute('''
+        INSERT INTO servant_reports
+            (servant_username, report_type, date, total_count, present_count, absent_count, notes, submitted_at, is_read)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+    ''', (servant_username, report_type, date, total, present, absent, notes, submitted_at))
+    report_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return report_id
+
+
+def get_servant_reports(date_filter: str = None, type_filter: str = None) -> List[Dict]:
+    """Get all servant reports, optionally filtered by date or type."""
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    # Ensure table exists
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS servant_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            servant_username TEXT NOT NULL,
+            report_type TEXT NOT NULL DEFAULT 'attendance',
+            date TEXT NOT NULL,
+            total_count INTEGER DEFAULT 0,
+            present_count INTEGER DEFAULT 0,
+            absent_count INTEGER DEFAULT 0,
+            notes TEXT DEFAULT '',
+            submitted_at TEXT NOT NULL,
+            is_read INTEGER NOT NULL DEFAULT 0
+        )
+    ''')
+    query = "SELECT * FROM servant_reports WHERE 1=1"
+    params = []
+    if date_filter:
+        query += " AND date = ?"
+        params.append(date_filter)
+    if type_filter:
+        query += " AND report_type = ?"
+        params.append(type_filter)
+    query += " ORDER BY submitted_at DESC"
+    cursor.execute(query, params)
+    reports = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return reports
+
+
+def delete_servant_report(report_id: int) -> bool:
+    """Delete a servant report by ID."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM servant_reports WHERE id = ?", (report_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+def mark_reports_read() -> None:
+    """Mark all reports as read."""
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("UPDATE servant_reports SET is_read = 1 WHERE is_read = 0")
+    conn.commit()
+    conn.close()
+
+
+def get_unread_report_count() -> int:
+    """Get count of unread servant reports."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT COUNT(*) FROM servant_reports WHERE is_read = 0")
+        count = cursor.fetchone()[0]
+    except:
+        count = 0
+    conn.close()
+    return count
+
+
+
+def check_user(username: str, password: str) -> Optional[Dict]:
+    """Check if user credentials are valid. Supports both hashed and legacy plain passwords."""
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    hashed = hash_password(password)
+
+    # Try hashed password first
+    cursor.execute(
+        "SELECT id, username, role FROM users WHERE username = ? AND password = ?",
+        (username, hashed)
+    )
+    user = cursor.fetchone()
+
+    if not user:
+        # Fallback: try plain-text password (legacy)
+        cursor.execute(
+            "SELECT id, username, role FROM users WHERE username = ? AND password = ?",
+            (username, password)
+        )
+        user = cursor.fetchone()
+        if user:
+            # Upgrade to hashed password
+            cursor.execute(
+                "UPDATE users SET password = ? WHERE username = ?",
+                (hashed, username)
+            )
+            conn.commit()
+
+    conn.close()
+    return dict(user) if user else None
+
+
+def get_all_users() -> List[Dict]:
+    """Get all users (without passwords)."""
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, role, created_at FROM users ORDER BY role, username")
+    users = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return users
+
+
+def add_user(username: str, password: str, role: str) -> Dict:
+    """Add a new user. Returns success/error dict."""
+    if role not in ('admin', 'user'):
+        return {'success': False, 'error': 'Invalid role. Must be admin or user.'}
+    if not username or not password:
+        return {'success': False, 'error': 'Username and password are required.'}
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (username.strip(), hash_password(password), role)
+        )
+        conn.commit()
+        user_id = cursor.lastrowid
+        conn.close()
+        return {'success': True, 'user_id': user_id}
+    except sqlite3.IntegrityError:
+        conn.close()
+        return {'success': False, 'error': f'Username "{username}" already exists.'}
+    except Exception as e:
+        conn.close()
+        return {'success': False, 'error': str(e)}
+
+
+def delete_user(user_id: int) -> bool:
+    """Delete a user by ID. Cannot delete if it's the last admin."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    # Check the user being deleted
+    cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return False
+
+    if row[0] == 'admin':
+        # Make sure there's at least one other admin
+        cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != ?", (user_id,))
+        if cursor.fetchone()[0] == 0:
+            conn.close()
+            return False  # Cannot delete the last admin
+
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def update_user_password(user_id: int, new_password: str) -> bool:
+    """Update a user's password."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET password = ? WHERE id = ?",
+        (hash_password(new_password), user_id)
+    )
+    changed = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return changed
 
 def import_from_excel(excel_path: str):
     """Import student data from Excel file."""

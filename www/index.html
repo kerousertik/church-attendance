@@ -35,26 +35,83 @@
 
     <div id="app" style="display: none;">
         <!-- Top App Bar -->
-        <header class="app-bar">
+        <header class="app-bar" id="main-header" style="display: none;">
             <div class="app-bar-left">
                 <img src="app-icon.png" alt="Logo" class="app-bar-logo">
-                <span style="font-size: 24px; margin-left: -8px;">✝</span>
                 <div class="app-bar-title">
                     <span class="title">Attendance</span>
                     <span class="subtitle" id="current-date"></span>
                 </div>
             </div>
-            <div class="app-bar-right">
-                <div class="admin-chip" id="admin-chip" onclick="app.toggleAdminMode()" title="Toggle Admin Mode">
-                    <span class="material-icons-round" id="admin-icon">lock</span>
+            <div class="app-bar-right" style="display: flex; align-items: center; gap: 8px;">
+                <div id="user-display"
+                    style="background: var(--surface-variant); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: var(--primary-light); display: flex; align-items: center; gap: 6px;">
+                    <span class="material-icons-round" style="font-size: 14px;">person</span>
+                    <span id="display-username">User</span>
+                </div>
+                <div class="admin-chip" onclick="app.logout()" title="Logout"
+                    style="background: var(--error-container); border-color: rgba(242, 184, 181, 0.3); color: var(--on-surface);">
+                    <span class="material-icons-round">logout</span>
                 </div>
             </div>
         </header>
 
         <!-- Main Content Area -->
         <main class="main-content">
+            <!-- Login View -->
+            <div id="view-login" class="view active">
+                <div class="login-container">
+                    <div class="login-card">
+                        <div class="login-header">
+                            <img src="app-icon.png" alt="Logo" class="login-logo">
+                            <h2>Welcome</h2>
+                            <p>Sign in to your account</p>
+                        </div>
+                        <form id="login-form" onsubmit="app.login(event)">
+                            <div class="input-group">
+                                <label for="login-username">Username</label>
+                                <div class="input-with-icon">
+                                    <span class="material-icons-round">person</span>
+                                    <input type="text" id="login-username" placeholder="Enter username" required>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="login-password">Password</label>
+                                <div class="input-with-icon">
+                                    <span class="material-icons-round">lock</span>
+                                    <input type="password" id="login-password" placeholder="Enter password" required>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin: 10px 0 15px 0;">
+                                <input type="checkbox" id="remember-me"
+                                    style="width: 18px; height: 18px; cursor: pointer;">
+                                <label for="remember-me"
+                                    style="font-size: 0.85rem; color: var(--on-surface-variant); cursor: pointer; user-select: none;">Remember
+                                    Username</label>
+                            </div>
+                            <button type="submit" class="submit-btn">
+                                <span class="material-icons-round">login</span>
+                                Sign In
+                            </button>
+                        </form>
+                        <div class="login-footer">
+                            <p>© 2026 St. John the Beloved Church</p>
+                        </div>
+                        <!-- Admin Portal Link -->
+                        <a href="/admin" id="admin-portal-link" title="Admin Dashboard" style="display: inline-flex; align-items: center; justify-content: center;
+                                   margin-top: 16px; width: 36px; height: 36px; border-radius: 50%;
+                                   background: rgba(91,142,240,0.08); border: 1px solid rgba(91,142,240,0.2);
+                                   color: rgba(91,142,240,0.5); text-decoration: none;
+                                   transition: background 0.2s, color 0.2s, border-color 0.2s;"
+                            onmouseover="this.style.background='rgba(91,142,240,0.18)';this.style.color='#5b8ef0';this.style.borderColor='rgba(91,142,240,0.5)';"
+                            onmouseout="this.style.background='rgba(91,142,240,0.08)';this.style.color='rgba(91,142,240,0.5)';this.style.borderColor='rgba(91,142,240,0.2)';">
+                            <span class="material-icons-round" style="font-size: 18px;">admin_panel_settings</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
             <!-- Dashboard View -->
-            <div id="view-home" class="view active">
+            <div id="view-home" class="view">
                 <div class="stats-row" id="stats-container">
                     <div class="stat-chip" onclick="app.showAllStudents()">
                         <span class="material-icons-round">people</span>
@@ -102,6 +159,13 @@
                                 <span class="material-icons-round">notification_important</span>
                             </div>
                             <span class="tile-label">Absence Alerts</span>
+                        </div>
+                        <div class="action-tile" id="admin-reports-tile" style="display: none;" onclick="app.showAdminReports()">
+                            <div class="tile-icon info" style="position:relative;">
+                                <span class="material-icons-round">assignment</span>
+                                <span id="main-reports-badge" style="display:none; position:absolute; top:-5px; right:-5px; background:var(--danger); color:white; border-radius:50%; width:18px; height:18px; font-size:0.65rem; font-weight:800; align-items:center; justify-content:center;">0</span>
+                            </div>
+                            <span class="tile-label">Servant Reports</span>
                         </div>
                     </div>
                 </div>
@@ -405,10 +469,61 @@
                     </button>
                 </form>
             </div>
+            <!-- Admin Reports View -->
+            <div id="view-admin-reports" class="view">
+                <div class="page-header">
+                    <button class="back-btn" onclick="app.showHome()">
+                        <span class="material-icons-round">arrow_back</span>
+                    </button>
+                    <h1>Servant Reports</h1>
+                </div>
+
+                <div style="padding: 15px;">
+                    <!-- Filters -->
+                    <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px; background:var(--surface-container-high); padding:10px; border-radius:10px;">
+                        <input type="date" id="main-report-date" class="search-input" onchange="app.loadAdminReports()">
+                        <select id="main-report-type" class="search-input" onchange="app.loadAdminReports()">
+                            <option value="">All Types</option>
+                            <option value="attendance">📋 Attendance</option>
+                            <option value="eftikad">🏠 Eftikad</option>
+                        </select>
+                        <div style="display:flex; gap:10px;">
+                            <button class="submit-btn" style="flex:1;" onclick="app.loadAdminReports()">Refresh</button>
+                            <button class="submit-btn" style="flex:1; background:var(--gold); border-color:var(--gold);" onclick="app.downloadAdminReports()">Excel</button>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+                        <div style="background:var(--surface-container-high); padding:10px; border-radius:10px; text-align:center;">
+                            <div style="font-size:1.2rem; font-weight:bold; color:var(--primary);" id="main-rstat-attendance">-</div>
+                            <div style="font-size:0.75rem; color:var(--on-surface-variant);">Attendance</div>
+                        </div>
+                        <div style="background:var(--surface-container-high); padding:10px; border-radius:10px; text-align:center;">
+                            <div style="font-size:1.2rem; font-weight:bold; color:var(--gold);" id="main-rstat-eftikad">-</div>
+                            <div style="font-size:0.75rem; color:var(--on-surface-variant);">Eftikad</div>
+                        </div>
+                    </div>
+
+                    <!-- Mark Read -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-weight:bold; color:var(--on-surface);">Submission Log</span>
+                        <button class="text-btn" onclick="app.markAdminReportsRead()" style="color:var(--warning); display:flex; align-items:center; gap:5px; background:none; border:none; cursor:pointer; font-weight:600; font-size:0.9rem;">
+                            <span class="material-icons-round" style="font-size:16px;">done_all</span> Mark Read
+                        </button>
+                    </div>
+
+                    <!-- List Container -->
+                    <div class="list-container" id="main-reports-list" style="background:var(--surface-container-high); border-radius:12px; overflow:hidden;">
+                        <div style="text-align:center; padding:40px; color:var(--on-surface-variant);"><span class="material-icons-round spin">sync</span></div>
+                    </div>
+                </div>
+            </div>
+            
         </main>
 
         <!-- Bottom Navigation -->
-        <nav class="bottom-nav">
+        <nav class="bottom-nav" id="main-nav" style="display: none;">
             <button class="nav-item active" onclick="app.showHome()">
                 <span class="material-icons-round">home</span>
                 <span>Home</span>

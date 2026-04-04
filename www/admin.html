@@ -1,0 +1,1700 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f1117">
+    <title>Admin Dashboard — St. John the Beloved</title>
+    <link rel="icon" type="image/png" href="app-icon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0f1117;
+            --surface: #181c27;
+            --surface-2: #1f2535;
+            --surface-3: #252d40;
+            --border: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.18);
+            --primary: #5b8ef0;
+            --primary-dark: #3b6ee0;
+            --primary-glow: rgba(91, 142, 240, 0.25);
+            --gold: #f5c842;
+            --gold-dim: rgba(245, 200, 66, 0.12);
+            --success: #34d399;
+            --success-dim: rgba(52, 211, 153, 0.12);
+            --danger: #f87171;
+            --danger-dim: rgba(248, 113, 113, 0.12);
+            --warning: #fbbf24;
+            --warning-dim: rgba(251, 191, 36, 0.12);
+            --text: #e8eaf0;
+            --text-dim: #8892a8;
+            --text-muted: #4a5568;
+            --radius: 14px;
+            --radius-sm: 8px;
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --glow: 0 0 30px rgba(91, 142, 240, 0.15);
+        }
+
+        html,
+        body {
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        /* ===== AUTH GATE ===== */
+        #auth-gate {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .auth-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 48px 40px;
+            width: min(420px, 92vw);
+            box-shadow: var(--shadow), var(--glow);
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .auth-logo {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 32px;
+        }
+
+        .auth-logo img {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+        }
+
+        .auth-logo-text h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .auth-logo-text p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .auth-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--gold-dim);
+            border: 1px solid rgba(245, 200, 66, 0.25);
+            color: var(--gold);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+        }
+
+        .admin-input-group {
+            margin-bottom: 18px;
+        }
+
+        .admin-input-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper .material-icons-round {
+            position: absolute;
+            left: 14px;
+            color: var(--text-muted);
+            font-size: 18px;
+            pointer-events: none;
+        }
+
+        .admin-input {
+            width: 100%;
+            padding: 13px 14px 13px 44px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-size: 0.95rem;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .admin-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        .admin-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        select.admin-input {
+            cursor: pointer;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 13px 22px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.01em;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            width: 100%;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(91, 142, 240, 0.35);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(91, 142, 240, 0.45);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-success {
+            background: var(--success-dim);
+            color: var(--success);
+            border: 1px solid rgba(52, 211, 153, 0.25);
+        }
+
+        .btn-success:hover {
+            background: rgba(52, 211, 153, 0.2);
+        }
+
+        .btn-danger {
+            background: var(--danger-dim);
+            color: var(--danger);
+            border: 1px solid rgba(248, 113, 113, 0.2);
+            padding: 8px 14px;
+            font-size: 0.8rem;
+        }
+
+        .btn-danger:hover {
+            background: rgba(248, 113, 113, 0.2);
+        }
+
+        .btn-warning {
+            background: var(--warning-dim);
+            color: var(--warning);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+            padding: 8px 14px;
+            font-size: 0.8rem;
+        }
+
+        .btn-warning:hover {
+            background: rgba(251, 191, 36, 0.2);
+        }
+
+        .btn-sm {
+            padding: 7px 12px;
+            font-size: 0.78rem;
+        }
+
+        /* ===== MAIN LAYOUT ===== */
+        #main-app {
+            display: none;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 260px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 28px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .sidebar-logo img {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+        }
+
+        .sidebar-logo-text h2 {
+            font-size: 1rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sidebar-logo-text p {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+
+        .sidebar-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--gold-dim);
+            border: 1px solid rgba(245, 200, 66, 0.2);
+            color: var(--gold);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 12px;
+            overflow-y: auto;
+        }
+
+        .nav-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 12px 12px 8px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 14px;
+            border-radius: var(--radius-sm);
+            color: var(--text-dim);
+            font-size: 0.88rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-decoration: none;
+            border: none;
+            background: none;
+            width: 100%;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .nav-link:hover {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+
+        .nav-link.active {
+            background: linear-gradient(135deg, rgba(91, 142, 240, 0.15), rgba(91, 142, 240, 0.05));
+            color: var(--primary);
+            border: 1px solid rgba(91, 142, 240, 0.2);
+        }
+
+        .nav-link .material-icons-round {
+            font-size: 18px;
+        }
+
+        .sidebar-footer {
+            padding: 16px 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: var(--surface-2);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin-bottom: 10px;
+        }
+
+        .user-chip-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .user-chip-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-chip-name {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .user-chip-role {
+            font-size: 0.7rem;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Content area */
+        .content {
+            margin-left: 260px;
+            padding: 32px;
+            min-height: 100vh;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .page-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            margin-bottom: 32px;
+        }
+
+        /* Stats row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 18px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--border-hover);
+        }
+
+        .stat-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+
+        .stat-icon .material-icons-round {
+            font-size: 20px;
+        }
+
+        .stat-icon.blue {
+            background: rgba(91, 142, 240, 0.15);
+            color: var(--primary);
+        }
+
+        .stat-icon.gold {
+            background: var(--gold-dim);
+            color: var(--gold);
+        }
+
+        .stat-icon.green {
+            background: var(--success-dim);
+            color: var(--success);
+        }
+
+        .stat-icon.red {
+            background: var(--danger-dim);
+            color: var(--danger);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text);
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title .material-icons-round {
+            color: var(--primary);
+            font-size: 20px;
+        }
+
+        /* Form grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .form-full {
+            grid-column: 1 / -1;
+        }
+
+        @media (max-width: 600px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* User table */
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .user-table th {
+            text-align: left;
+            padding: 12px 14px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .user-table td {
+            padding: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            font-size: 0.88rem;
+            vertical-align: middle;
+        }
+
+        .user-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .user-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .role-badge.admin {
+            background: var(--gold-dim);
+            color: var(--gold);
+            border: 1px solid rgba(245, 200, 66, 0.2);
+        }
+
+        .role-badge.user {
+            background: rgba(91, 142, 240, 0.12);
+            color: var(--primary);
+            border: 1px solid rgba(91, 142, 240, 0.2);
+        }
+
+        .actions-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 28px 0;
+        }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            padding: 13px 22px;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+            z-index: 9999;
+            opacity: 0;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        #toast.success {
+            background: var(--success);
+            color: #0f2018;
+        }
+
+        #toast.error {
+            background: var(--danger);
+            color: #2c0000;
+        }
+
+        #toast.info {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 32px;
+            width: min(440px, 90vw);
+            box-shadow: var(--shadow);
+            transform: scale(0.95);
+            transition: transform 0.2s;
+        }
+
+        .modal-overlay.active .modal-box {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--warning);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            justify-content: flex-end;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-outline:hover {
+            border-color: var(--border-hover);
+            color: var(--text);
+        }
+
+        /* Sections (tab panels) */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* Password modal form */
+        .pw-form .admin-input-group {
+            margin-bottom: 0;
+        }
+
+        /* Spinner */
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spin {
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .content {
+                margin-left: 0;
+                padding: 20px 16px;
+            }
+
+            .mobile-header {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 16px;
+                background: var(--surface);
+                border-bottom: 1px solid var(--border);
+                position: sticky;
+                top: 0;
+                z-index: 90;
+            }
+
+            #mobile-menu-btn {
+                background: none;
+                border: none;
+                color: var(--text);
+                cursor: pointer;
+            }
+        }
+
+        .mobile-header {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Auth Gate -->
+    <div id="auth-gate">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <img src="app-icon.png" alt="Logo">
+                <div class="auth-logo-text">
+                    <h1>Admin Portal</h1>
+                    <p>St. John the Beloved</p>
+                </div>
+            </div>
+            <div class="auth-badge">
+                <span class="material-icons-round" style="font-size:13px;">shield</span>
+                Admin Access Required
+            </div>
+            <form id="auth-form" onsubmit="authenticate(event)">
+                <div class="admin-input-group">
+                    <label>Username</label>
+                    <div class="input-wrapper">
+                        <span class="material-icons-round">person</span>
+                        <input type="text" id="auth-username" class="admin-input" placeholder="Enter username"
+                            autocomplete="username" required>
+                    </div>
+                </div>
+                <div class="admin-input-group">
+                    <label>Password</label>
+                    <div class="input-wrapper">
+                        <span class="material-icons-round">lock</span>
+                        <input type="password" id="auth-password" class="admin-input" placeholder="Enter password"
+                            autocomplete="current-password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" id="auth-btn" style="margin-top:12px;">
+                    <span class="material-icons-round">login</span>
+                    Sign In to Admin
+                </button>
+                <p style="margin-top:18px; text-align:center; font-size:0.8rem; color:var(--text-dim);">
+                    Only admin accounts can access this portal.
+                </p>
+            </form>
+            <p style="margin-top:20px; text-align:center; font-size:0.8rem;">
+                <a href="/" style="color:var(--primary); text-decoration:none;">← Back to App</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="main-app">
+        <!-- Mobile header -->
+        <div class="mobile-header">
+            <button id="mobile-menu-btn" onclick="toggleSidebar()">
+                <span class="material-icons-round">menu</span>
+            </button>
+            <span style="font-weight:700; font-size:1rem;">Admin Portal</span>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <img src="app-icon.png" alt="Logo">
+                    <div class="sidebar-logo-text">
+                        <h2>Admin Portal</h2>
+                        <p>St. John the Beloved</p>
+                    </div>
+                </div>
+                <div style="margin-top:10px;">
+                    <span class="sidebar-badge">
+                        <span class="material-icons-round" style="font-size:11px;">shield</span>
+                        Administrator
+                    </span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-label">Management</div>
+                <button class="nav-link active" id="nav-overview" onclick="showSection('overview')">
+                    <span class="material-icons-round">dashboard</span>
+                    Overview
+                </button>
+                <button class="nav-link" id="nav-users" onclick="showSection('users')">
+                    <span class="material-icons-round">manage_accounts</span>
+                    User Accounts
+                </button>
+                <button class="nav-link" id="nav-register" onclick="showSection('register')">
+                    <span class="material-icons-round">person_add</span>
+                    Register Account
+                </button>
+                <button class="nav-link" id="nav-reports" onclick="showSection('reports')" style="position:relative;">
+                    <span class="material-icons-round">assignment</span>
+                    Servant Reports
+                    <span id="reports-badge" style="display:none; position:absolute; top:8px; right:10px;
+                    background:var(--danger); color:white; border-radius:50%; width:18px; height:18px;
+                    font-size:0.65rem; font-weight:800; align-items:center; justify-content:center;">0</span>
+                </button>
+                4ion
+    </div>
+    <a href="/" class="nav-link">
+        <span class="material-icons-round">apps</span>
+        Main App
+    </a>
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="user-chip">
+            <div class="user-chip-avatar" id="sidebar-avatar">A</div>
+            <div class="user-chip-info">
+                <div class="user-chip-name" id="sidebar-username">Admin</div>
+                <div class="user-chip-role">Administrator</div>
+            </div>
+        </div>
+        <button class="btn btn-danger" style="width:100%; justify-content:center;" onclick="signOut()">
+            <span class="material-icons-round" style="font-size:16px;">logout</span>
+            Sign Out
+        </button>
+    </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="content">
+
+        <!-- Overview Section -->
+        <div id="section-overview" class="section active">
+            <h1 class="page-title">Dashboard Overview</h1>
+            <p class="page-subtitle">Manage user accounts and system access for the attendance app.</p>
+
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon blue"><span class="material-icons-round">people</span></div>
+                    <div class="stat-value" id="stat-total">—</div>
+                    <div class="stat-label">Total Accounts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon gold"><span class="material-icons-round">shield</span></div>
+                    <div class="stat-value" id="stat-admins">—</div>
+                    <div class="stat-label">Admin Accounts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><span class="material-icons-round">person</span></div>
+                    <div class="stat-value" id="stat-users">—</div>
+                    <div class="stat-label">User Accounts</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="material-icons-round">info</span>
+                        Account Roles Explained
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <div
+                        style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:20px;">
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                            <span class="role-badge admin">Admin</span>
+                        </div>
+                        <ul style="font-size:0.85rem; color:var(--text-dim); padding-left:18px; line-height:1.8;">
+                            <li>Full access to all features</li>
+                            <li>Add / edit / delete students</li>
+                            <li>Manage servants</li>
+                            <li>Import & export Excel data</li>
+                            <li>Send announcements</li>
+                            <li>Access Admin Portal</li>
+                        </ul>
+                    </div>
+                    <div
+                        style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:20px;">
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                            <span class="role-badge user">User</span>
+                        </div>
+                        <ul style="font-size:0.85rem; color:var(--text-dim); padding-left:18px; line-height:1.8;">
+                            <li>Take attendance</li>
+                            <li>View student profiles</li>
+                            <li>View absence alerts</li>
+                            <li>View attendance history</li>
+                            <li>Cannot modify students</li>
+                            <li>No admin tools access</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="material-icons-round">list_alt</span>
+                        Recent Accounts
+                    </div>
+                    <button class="btn btn-success" onclick="showSection('users')">
+                        <span class="material-icons-round">manage_accounts</span>
+                        Manage All
+                    </button>
+                </div>
+                <div id="overview-users-list">
+                    <div style="text-align:center; padding:30px; color:var(--text-muted);">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Section -->
+        <div id="section-users" class="section">
+            <h1 class="page-title">User Accounts</h1>
+            <p class="page-subtitle">View, manage, and delete user accounts. You cannot delete the last admin.</p>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="material-icons-round">group</span>
+                        All Accounts
+                    </div>
+                    <button class="btn btn-success" onclick="showSection('register')">
+                        <span class="material-icons-round">person_add</span>
+                        Add Account
+                    </button>
+                </div>
+                <div id="users-table-container">
+                    <div style="text-align:center;padding:40px;color:var(--text-muted);">
+                        <span class="material-icons-round spin">sync</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Register Section -->
+        <div id="section-register" class="section">
+            <h1 class="page-title">Register Account</h1>
+            <p class="page-subtitle">Create a new admin or user account for the attendance system.</p>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="material-icons-round">person_add</span>
+                        New Account
+                    </div>
+                </div>
+                <form id="register-form" onsubmit="registerUser(event)">
+                    <div class="form-grid">
+                        <div class="admin-input-group">
+                            <label>Username *</label>
+                            <div class="input-wrapper">
+                                <span class="material-icons-round">badge</span>
+                                <input type="text" id="reg-username" class="admin-input" placeholder="e.g. john_smith"
+                                    required minlength="3">
+                            </div>
+                        </div>
+                        <div class="admin-input-group">
+                            <label>Account Role *</label>
+                            <div class="input-wrapper">
+                                <span class="material-icons-round">admin_panel_settings</span>
+                                <select id="reg-role" class="admin-input" required>
+                                    <option value="user">User (Servant)</option>
+                                    <option value="admin">Admin (Full Access)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin-input-group">
+                            <label>Password *</label>
+                            <div class="input-wrapper">
+                                <span class="material-icons-round">lock</span>
+                                <input type="password" id="reg-password" class="admin-input"
+                                    placeholder="Min. 4 characters" required minlength="4">
+                            </div>
+                        </div>
+                        <div class="admin-input-group">
+                            <label>Confirm Password *</label>
+                            <div class="input-wrapper">
+                                <span class="material-icons-round">lock_reset</span>
+                                <input type="password" id="reg-confirm" class="admin-input"
+                                    placeholder="Repeat password" required minlength="4">
+                            </div>
+                        </div>
+                    </div>
+                    <hr class="divider">
+                    <div
+                        style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; margin-bottom:22px;">
+                        <p style="font-size:0.82rem; color:var(--text-dim); line-height:1.7;">
+                            <span class="material-icons-round"
+                                style="font-size:14px;vertical-align:middle;margin-right:4px;color:var(--warning);">info</span>
+                            Passwords are securely hashed before storage. Share login credentials with the person
+                            privately.
+                            Default credentials: <strong style="color:var(--text);">STJOHN / Pray#1</strong> and <strong
+                                style="color:var(--text);">user / user123</strong>.
+                        </p>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="register-btn" style="max-width:220px;">
+                        <span class="material-icons-round">person_add</span>
+                        Create Account
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Servant Reports Section -->
+        <div id="section-reports" class="section">
+            <h1 class="page-title">Servant Reports</h1>
+            <p class="page-subtitle">Track attendance and eftikad visits submitted by servants. Auto-notified when
+                servants save records.</p>
+
+            <!-- Filters + Actions row -->
+            <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:24px;">
+                <div
+                    style="display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px;">
+                    <span class="material-icons-round"
+                        style="color:var(--text-muted); font-size:18px;">calendar_today</span>
+                    <input type="date" id="report-date-filter" class="admin-input"
+                        style="border:none; background:none; padding:0; width:140px;" onchange="loadReports()">
+                </div>
+                <div
+                    style="display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px;">
+                    <span class="material-icons-round"
+                        style="color:var(--text-muted); font-size:18px;">filter_list</span>
+                    <select id="report-type-filter" class="admin-input"
+                        style="border:none; background:none; padding:0; width:160px;" onchange="loadReports()">
+                        <option value="">All Types</option>
+                        <option value="attendance">📋 Attendance Only</option>
+                        <option value="eftikad">🏠 Eftikad Only</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" onclick="loadReports()">
+                    <span class="material-icons-round">refresh</span> Refresh
+                </button>
+                <button class="btn btn-primary" onclick="downloadReports()" style="margin-left:auto;">
+                    <span class="material-icons-round">download</span> Download Excel
+                </button>
+            </div>
+
+            <!-- Stats row -->
+            <div class="stats-row" style="margin-bottom:24px;">
+                <div class="stat-card">
+                    <div class="stat-icon blue"><span class="material-icons-round">assignment</span></div>
+                    <div class="stat-value" id="rstat-total">—</div>
+                    <div class="stat-label">Total Reports</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><span class="material-icons-round">how_to_reg</span></div>
+                    <div class="stat-value" id="rstat-attendance">—</div>
+                    <div class="stat-label">Attendance Submissions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon gold"><span class="material-icons-round">home</span></div>
+                    <div class="stat-value" id="rstat-eftikad">—</div>
+                    <div class="stat-label">Eftikad Submissions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red"><span class="material-icons-round">notifications</span></div>
+                    <div class="stat-value" id="rstat-unread">—</div>
+                    <div class="stat-label">Unread Notifications</div>
+                </div>
+            </div>
+
+            <!-- Reports Table -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="material-icons-round">table_chart</span>
+                        Submission Log
+                    </div>
+                    <button class="btn btn-warning" onclick="markAllRead()" style="font-size:0.8rem; padding:8px 14px;">
+                        <span class="material-icons-round" style="font-size:16px;">done_all</span>
+                        Mark All Read
+                    </button>
+                </div>
+                <div id="reports-table-container">
+                    <div style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <span class="material-icons-round spin">sync</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="pw-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title">
+                <span class="material-icons-round">key</span>
+                Change Password
+            </div>
+            <p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:20px;">
+                Set a new password for <strong id="pw-modal-username" style="color:var(--text);">—</strong>
+            </p>
+            <div class="admin-input-group pw-form">
+                <label>New Password</label>
+                <div class="input-wrapper">
+                    <span class="material-icons-round">lock</span>
+                    <input type="password" id="pw-new" class="admin-input" placeholder="Min. 4 characters"
+                        minlength="4">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-outline" onclick="closePwModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="savePassword()" style="max-width:160px;">
+                    <span class="material-icons-round">save</span>
+                    Save Password
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div id="del-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title">
+                <span class="material-icons-round">warning</span>
+                Confirm Delete
+            </div>
+            <p style="font-size:0.9rem; color:var(--text-dim); line-height:1.6;">
+                Are you sure you want to delete the account <strong id="del-modal-username"
+                    style="color:var(--danger);">—</strong>?
+                This action cannot be undone.
+            </p>
+            <div class="modal-actions">
+                <button class="btn-outline" onclick="closeDelModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDelete()">
+                    <span class="material-icons-round">delete_forever</span>
+                    Delete Account
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        let currentAdminUser = null;
+        let pendingDeleteId = null;
+        let pendingPwId = null;
+        let allUsers = [];
+
+        // ===== AUTH =====
+        async function authenticate(e) {
+            e.preventDefault();
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const btn = document.getElementById('auth-btn');
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-icons-round spin">sync</span> Signing in...';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+
+                if (data.success && data.role === 'admin') {
+                    currentAdminUser = { username, role: data.role };
+                    sessionStorage.setItem('adminUser', JSON.stringify(currentAdminUser));
+                    showApp();
+                } else if (data.success && data.role !== 'admin') {
+                    showToast('Access denied. Admin accounts only.', 'error');
+                } else {
+                    showToast(data.error || 'Invalid credentials', 'error');
+                }
+            } catch (err) {
+                showToast('Cannot connect to server. Is it running?', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-icons-round">login</span> Sign In to Admin';
+            }
+        }
+
+        function signOut() {
+            localStorage.removeItem('adminUser');
+            document.getElementById('main-app').style.display = 'none';
+            document.getElementById('auth-gate').style.display = 'flex';
+            document.getElementById('auth-form').reset();
+        }
+
+        function showApp() {
+            document.getElementById('auth-gate').style.display = 'none';
+            document.getElementById('main-app').style.display = 'block';
+            document.getElementById('sidebar-username').textContent = currentAdminUser.username;
+            document.getElementById('sidebar-avatar').textContent = currentAdminUser.username[0].toUpperCase();
+            loadAllUsers();
+            updateReportsBadge();
+            setInterval(updateReportsBadge, 30000); // poll every 30 seconds
+        }
+
+        // ===== SECTIONS =====
+        function showSection(name) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+            document.getElementById('section-' + name).classList.add('active');
+            const navEl = document.getElementById('nav-' + name);
+            if (navEl) navEl.classList.add('active');
+
+            if (name === 'users' || name === 'overview') {
+                loadAllUsers();
+            }
+            if (name === 'reports') {
+                loadReports();
+            }
+
+            // Close mobile sidebar
+            document.getElementById('sidebar').classList.remove('open');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        // ===== SERVANT REPORTS =====
+        let allReports = [];
+
+        async function loadReports() {
+            const dateVal = document.getElementById('report-date-filter').value;
+            const typeVal = document.getElementById('report-type-filter').value;
+            const container = document.getElementById('reports-table-container');
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><span class="material-icons-round spin">sync</span></div>';
+
+            try {
+                let url = '/api/admin/servant-reports?';
+                if (dateVal) url += `date=${dateVal}&`;
+                if (typeVal) url += `type=${typeVal}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                allReports = data.reports || [];
+                renderReportsTable();
+                renderReportStats();
+                updateReportsBadge();
+            } catch (e) {
+                showToast('Failed to load reports', 'error');
+                container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger);">Error loading reports.</div>';
+            }
+        }
+
+        function renderReportStats() {
+            const attendance = allReports.filter(r => r.report_type === 'attendance').length;
+            const eftikad = allReports.filter(r => r.report_type === 'eftikad').length;
+            const unread = allReports.filter(r => r.is_read === 0).length;
+            document.getElementById('rstat-total').textContent = allReports.length;
+            document.getElementById('rstat-attendance').textContent = attendance;
+            document.getElementById('rstat-eftikad').textContent = eftikad;
+            document.getElementById('rstat-unread').textContent = unread;
+        }
+
+        function renderReportsTable() {
+            const el = document.getElementById('reports-table-container');
+            if (allReports.length === 0) {
+                el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);">No reports found. Reports appear here when servants submit attendance or eftikad.</div>';
+                return;
+            }
+            el.innerHTML = `
+            <table class="user-table">
+                <thead><tr>
+                    <th></th>
+                    <th>Servant</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Total</th>
+                    <th>Present / Visited</th>
+                    <th>Absent</th>
+                    <th>Submitted</th>
+                    <th>Action</th>
+                </tr></thead>
+                <tbody>
+                    ${allReports.map(r => {
+                const isAttendance = r.report_type === 'attendance';
+                const typeIcon = isAttendance ? '📋' : '🏠';
+                const typeLabel = isAttendance ? 'Attendance' : 'Eftikad';
+                const typeColor = isAttendance ? 'var(--primary)' : 'var(--gold)';
+                const unreadDot = r.is_read === 0
+                    ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--danger);margin-right:4px;"></span>'
+                    : '';
+                return `<tr style="${r.is_read === 0 ? 'background:rgba(91,142,240,0.04);' : ''}">
+                            <td>${unreadDot}</td>
+                            <td style="font-weight:600;">${escHtml(r.servant_username)}</td>
+                            <td><span style="color:${typeColor};font-weight:700;font-size:0.82rem;">${typeIcon} ${typeLabel}</span></td>
+                            <td style="color:var(--text-dim);">${r.date}</td>
+                            <td style="text-align:center;">${r.total_count}</td>
+                            <td style="text-align:center;color:var(--success);font-weight:700;">${r.present_count}</td>
+                            <td style="text-align:center;color:var(--danger);font-weight:700;">${r.absent_count}</td>
+                            <td style="color:var(--text-dim);font-size:0.78rem;">${formatDate(r.submitted_at)}</td>
+                            <td><button class="btn btn-danger btn-sm" onclick="deleteReport(${r.id})">
+                                <span class="material-icons-round" style="font-size:14px;">delete</span>
+                            </button></td>
+                        </tr>`;
+            }).join('')}
+                </tbody>
+            </table>
+        `;
+        }
+
+        async function deleteReport(id) {
+            try {
+                const res = await fetch(`/api/admin/servant-reports/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Report deleted', 'success');
+                    loadReports();
+                } else {
+                    showToast(data.error || 'Failed to delete', 'error');
+                }
+            } catch (e) {
+                showToast('Server error', 'error');
+            }
+        }
+
+        async function markAllRead() {
+            try {
+                await fetch('/api/admin/servant-reports/mark-read', { method: 'POST' });
+                showToast('All reports marked as read', 'success');
+                loadReports();
+            } catch (e) {
+                showToast('Server error', 'error');
+            }
+        }
+
+        function downloadReports() {
+            const dateVal = document.getElementById('report-date-filter').value;
+            const typeVal = document.getElementById('report-type-filter').value;
+            let url = '/api/admin/servant-reports/download?';
+            if (dateVal) url += `date=${dateVal}&`;
+            if (typeVal) url += `type=${typeVal}`;
+            window.open(url, '_blank');
+            showToast('Downloading report...', 'info');
+        }
+
+        async function updateReportsBadge() {
+            try {
+                const res = await fetch('/api/admin/servant-reports/unread-count');
+                const data = await res.json();
+                const badge = document.getElementById('reports-badge');
+                if (data.count > 0) {
+                    badge.textContent = data.count > 99 ? '99+' : data.count;
+                    badge.style.display = 'inline-flex';
+                } else {
+                    badge.style.display = 'none';
+                }
+            } catch (e) { /* silent */ }
+        }
+
+        // ===== USERS =====
+        async function loadAllUsers() {
+            try {
+                const res = await fetch('/api/admin/users');
+                const data = await res.json();
+                allUsers = data.users || [];
+                renderUsersTable();
+                renderStats();
+                renderOverviewUsers();
+            } catch (e) {
+                showToast('Failed to load users', 'error');
+            }
+        }
+
+        function renderStats() {
+            const admins = allUsers.filter(u => u.role === 'admin').length;
+            const users = allUsers.filter(u => u.role === 'user').length;
+            document.getElementById('stat-total').textContent = allUsers.length;
+            document.getElementById('stat-admins').textContent = admins;
+            document.getElementById('stat-users').textContent = users;
+        }
+
+        function renderOverviewUsers() {
+            const el = document.getElementById('overview-users-list');
+            if (allUsers.length === 0) {
+                el.innerHTML = '<div style="padding:20px;color:var(--text-muted);">No accounts found.</div>';
+                return;
+            }
+            el.innerHTML = `
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${allUsers.slice(0, 5).map(u => `
+                        <tr>
+                            <td style="font-weight:600;">${escHtml(u.username)}</td>
+                            <td><span class="role-badge ${u.role}">${u.role}</span></td>
+                            <td style="color:var(--text-dim);font-size:0.82rem;">${formatDate(u.created_at)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            ${allUsers.length > 5 ? `<p style="text-align:center;margin-top:14px;font-size:0.82rem;color:var(--text-dim);">+${allUsers.length - 5} more accounts</p>` : ''}
+        `;
+        }
+
+        function renderUsersTable() {
+            const el = document.getElementById('users-table-container');
+            if (allUsers.length === 0) {
+                el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);">No accounts yet.</div>';
+                return;
+            }
+            el.innerHTML = `
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${allUsers.map((u, i) => `
+                        <tr>
+                            <td style="color:var(--text-muted);font-size:0.8rem;">${u.id}</td>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <div style="width:30px;height:30px;border-radius:50%;background:${u.role === 'admin' ? 'var(--gold-dim)' : 'rgba(91,142,240,0.15)'};display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:800;color:${u.role === 'admin' ? 'var(--gold)' : 'var(--primary)'};">
+                                        ${u.username[0].toUpperCase()}
+                                    </div>
+                                    <span style="font-weight:600;">${escHtml(u.username)}</span>
+                                    ${u.username === currentAdminUser?.username ? '<span style="font-size:0.7rem;color:var(--text-muted);margin-left:4px;">(you)</span>' : ''}
+                                </div>
+                            </td>
+                            <td><span class="role-badge ${u.role}">${u.role}</span></td>
+                            <td style="color:var(--text-dim);font-size:0.82rem;">${formatDate(u.created_at)}</td>
+                            <td>
+                                <div class="actions-cell">
+                                    <button class="btn btn-warning btn-sm" onclick="openPwModal(${u.id},'${escHtml(u.username)}')">
+                                        <span class="material-icons-round" style="font-size:14px;">key</span>
+                                        Password
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="openDelModal(${u.id},'${escHtml(u.username)}')"
+                                        ${u.username === currentAdminUser?.username ? 'title="Cannot delete your own account"' : ''}>
+                                        <span class="material-icons-round" style="font-size:14px;">delete</span>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+        }
+
+        // ===== REGISTER =====
+        async function registerUser(e) {
+            e.preventDefault();
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const confirm = document.getElementById('reg-confirm').value;
+            const role = document.getElementById('reg-role').value;
+            const btn = document.getElementById('register-btn');
+
+            if (password !== confirm) {
+                showToast('Passwords do not match!', 'error');
+                return;
+            }
+
+            if (username.length < 3) {
+                showToast('Username must be at least 3 characters', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-icons-round spin">sync</span> Creating...';
+
+            try {
+                const res = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, role })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast(`Account "${username}" created successfully!`, 'success');
+                    document.getElementById('register-form').reset();
+                    loadAllUsers();
+                    setTimeout(() => showSection('users'), 800);
+                } else {
+                    showToast(data.error || 'Failed to create account', 'error');
+                }
+            } catch (e) {
+                showToast('Server error. Try again.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-icons-round">person_add</span> Create Account';
+            }
+        }
+
+        // ===== MODALS =====
+        function openPwModal(id, username) {
+            pendingPwId = id;
+            document.getElementById('pw-modal-username').textContent = username;
+            document.getElementById('pw-new').value = '';
+            document.getElementById('pw-modal').classList.add('active');
+        }
+
+        function closePwModal() {
+            document.getElementById('pw-modal').classList.remove('active');
+            pendingPwId = null;
+        }
+
+        async function savePassword() {
+            const pwd = document.getElementById('pw-new').value;
+            if (!pwd || pwd.length < 4) {
+                showToast('Password must be at least 4 characters', 'error');
+                return;
+            }
+            try {
+                const res = await fetch(`/api/admin/users/${pendingPwId}/password`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pwd })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Password updated successfully', 'success');
+                    closePwModal();
+                } else {
+                    showToast(data.error || 'Failed to update password', 'error');
+                }
+            } catch (e) {
+                showToast('Server error', 'error');
+            }
+        }
+
+        function openDelModal(id, username) {
+            if (username === currentAdminUser?.username) {
+                showToast("You cannot delete your own account!", 'error');
+                return;
+            }
+            pendingDeleteId = id;
+            document.getElementById('del-modal-username').textContent = username;
+            document.getElementById('del-modal').classList.add('active');
+        }
+
+        function closeDelModal() {
+            document.getElementById('del-modal').classList.remove('active');
+            pendingDeleteId = null;
+        }
+
+        async function confirmDelete() {
+            try {
+                const res = await fetch(`/api/admin/users/${pendingDeleteId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Account deleted', 'success');
+                    closeDelModal();
+                    loadAllUsers();
+                } else {
+                    showToast(data.error || 'Cannot delete account', 'error');
+                }
+            } catch (e) {
+                showToast('Server error', 'error');
+            }
+        }
+
+        // ===== UTILS =====
+        function showToast(msg, type = 'info') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = `show ${type}`;
+            setTimeout(() => { t.className = ''; }, 3500);
+        }
+
+        function escHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            try {
+                const d = new Date(dateStr);
+                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            } catch { return dateStr; }
+        }
+
+        // ===== INIT =====
+        window.addEventListener('load', () => {
+            // Check for existing session
+            const saved = localStorage.getItem('adminUser');
+            if (saved) {
+                currentAdminUser = JSON.parse(saved);
+                showApp();
+            }
+
+            // Close modals on overlay click
+            document.getElementById('pw-modal').addEventListener('click', function (e) {
+                if (e.target === this) closePwModal();
+            });
+            document.getElementById('del-modal').addEventListener('click', function (e) {
+                if (e.target === this) closeDelModal();
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1674,3 +1674,123 @@ body {
 .celebrate {
     animation: celebrate 0.6s ease-in-out;
 }
+
+/* ========== LOGIN VIEW ========== */
+.login-view {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(180deg, #13111A 0%, #1C1930 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.login-view::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(124, 92, 191, 0.1) 0%, transparent 70%);
+    animation: rotate 20s linear infinite;
+    z-index: 0;
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.login-container {
+    width: 100%;
+    max-width: 400px;
+    z-index: 1;
+}
+
+.login-card {
+    background: rgba(28, 25, 48, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 32px;
+    padding: 40px 30px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(124, 92, 191, 0.2);
+    text-align: center;
+}
+
+.login-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 16px rgba(124, 92, 191, 0.3);
+}
+
+.login-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.login-header p {
+    color: var(--on-surface-variant);
+    font-size: 0.9rem;
+    margin-bottom: 30px;
+}
+
+.input-with-icon {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.input-with-icon .material-icons-round {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--on-surface-variant);
+    font-size: 20px;
+}
+
+.input-with-icon input {
+    width: 100%;
+    padding: 16px 16px 16px 48px !important;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1.5px solid var(--outline-variant);
+    border-radius: 16px;
+    color: var(--on-surface);
+    font-size: 1rem;
+    transition: all 0.3s;
+}
+
+.input-with-icon input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(124, 92, 191, 0.1);
+    box-shadow: 0 0 0 4px rgba(124, 92, 191, 0.15);
+}
+
+.login-footer {
+    margin-top: 30px;
+    font-size: 0.75rem;
+    color: var(--on-surface-variant);
+}
+
+/* User Display Badge Colors */
+#user-display.admin-role {
+    color: var(--warning);
+    background: rgba(240, 192, 96, 0.1);
+}
+
+#user-display.user-role {
+    color: var(--primary-light);
+    background: rgba(155, 125, 212, 0.1);
+}

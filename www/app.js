@@ -7,8 +7,9 @@ const DB_VERSION = 5;
 class AttendanceApp {
     constructor() {
         this.db = null;
-        this.currentView = 'home';
-        this.isAdmin = false;
+        this.currentView = 'login';
+        this.userRole = null;
+        this.username = null;
         this.editingStudentId = null;
         this.editingServantId = null;
         this.attendanceData = {};
@@ -24,10 +25,133 @@ class AttendanceApp {
 
     async init() {
         await this.initDB();
+        
+        // Restore session
+        const savedRole = localStorage.getItem('userRole');
+        const savedUsername = localStorage.getItem('username');
+        
+        if (savedRole && savedUsername) {
+            this.userRole = savedRole;
+            this.username = savedUsername;
+            this.isAdmin = (savedRole === 'admin');
+            this.initApp();
+        } else {
+            this.showView('login');
+            // Pre-fill remembered username
+            const remembered = localStorage.getItem('rememberedUsername');
+            if (remembered) {
+                document.getElementById('login-username').value = remembered;
+                document.getElementById('remember-me').checked = true;
+            }
+        }
+        
+        this.setupEventListeners();
+    }
+
+    initApp() {
         this.updateDate();
         this.updateStats();
         this.loadBirthdays();
-        this.setupEventListeners();
+        this.updateUIForRole();
+        this.showHome();
+
+        // Show header and navigation
+        document.getElementById('main-header').style.display = 'flex';
+        document.getElementById('main-nav').style.display = 'flex';
+    }
+
+    updateUIForRole() {
+        const adminElements = document.querySelectorAll('.admin-section, #admin-actions, #servants-admin-actions');
+        adminElements.forEach(el => {
+            el.style.display = this.isAdmin ? 'block' : 'none';
+        });
+
+        // Update username display
+        document.getElementById('display-username').textContent = this.username || 'User';
+        
+        // User badge styling
+        const userDisplay = document.getElementById('user-display');
+        userDisplay.classList.remove('admin-role', 'user-role');
+        userDisplay.classList.add(this.isAdmin ? 'admin-role' : 'user-role');
+    }
+
+    async login(event) {
+        event.preventDefault();
+        const usernameInput = document.getElementById('login-username');
+        const passwordInput = document.getElementById('login-password');
+        const submitBtn = event.target.querySelector('button');
+        
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        if (!username || !password) return;
+
+        // Show loading state
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-icons-round">sync</span> Signing in...';
+
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.userRole = result.role;
+                this.username = result.username;
+                this.isAdmin = (result.role === 'admin');
+                
+                // Save session
+                localStorage.setItem('userRole', result.role);
+                localStorage.setItem('username', result.username);
+
+                // Handle Remember Me
+                const isRemembered = document.getElementById('remember-me').checked;
+                if (isRemembered) {
+                    localStorage.setItem('rememberedUsername', result.username);
+                } else {
+                    localStorage.removeItem('rememberedUsername');
+                }
+
+                this.showToast(`Welcome back, ${result.username}!`, 'success');
+                
+                // Reset form
+                event.target.reset();
+                
+                // Initialize main app
+                this.initApp();
+            } else {
+                this.showToast(result.error || 'Invalid credentials', 'error');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            this.showToast('Server connection failed. Is the server running?', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+
+    logout() {
+        if (!confirm('Are you sure you want to sign out?')) return;
+        
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('username');
+        
+        this.userRole = null;
+        this.username = null;
+        this.isAdmin = false;
+        
+        // Hide header and navigation
+        document.getElementById('main-header').style.display = 'none';
+        document.getElementById('main-nav').style.display = 'none';
+        
+        this.showView('login');
+        this.showToast('Signed out successfully', 'info');
     }
 
     // ==================== DATABASE ====================
@@ -371,12 +495,19 @@ class AttendanceApp {
 
     showView(viewId) {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById(`view-${viewId}`).classList.add('active');
+        const targetView = document.getElementById(`view-${viewId}`);
+        if (targetView) targetView.classList.add('active');
+
+        // Manage Header/Nav visibility
+        const isLoginView = viewId === 'login';
+        document.getElementById('main-header').style.display = isLoginView ? 'none' : 'flex';
+        document.getElementById('main-nav').style.display = isLoginView ? 'none' : 'flex';
 
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         const navMap = { home: 0, attendance: 1, students: 2, history: 3, servants: 4 };
         if (navMap[viewId] !== undefined) {
-            document.querySelectorAll('.nav-item')[navMap[viewId]].classList.add('active');
+            const navItems = document.querySelectorAll('.nav-item');
+            if (navItems[navMap[viewId]]) navItems[navMap[viewId]].classList.add('active');
         }
 
         this.currentView = viewId;
@@ -387,6 +518,34 @@ class AttendanceApp {
         this.updateStats();
         this.loadBirthdays();
         this.loadAbsenceAlerts();
+        
+        // Admin-only Servant Reports tile on main dashboard
+        const adminTile = document.getElementById('admin-reports-tile');
+        if (adminTile) {
+            if (this.isAdmin) {
+                adminTile.style.display = 'block';
+                this.updateAdminReportsBadge();
+            } else {
+                adminTile.style.display = 'none';
+            }
+        }
+    }
+
+    async updateAdminReportsBadge() {
+        if (!this.isAdmin) return;
+        try {
+            const res = await fetch('/api/admin/servant-reports/unread-count');
+            const data = await res.json();
+            const badge = document.getElementById('main-reports-badge');
+            if (data.count > 0) {
+                badge.textContent = data.count > 99 ? '99+' : data.count;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (e) {
+            // Silent
+        }
     }
 
     async loadBirthdays() {
@@ -458,6 +617,117 @@ class AttendanceApp {
         this.showView('absence-alerts');
         await this.loadAbsenceAlerts(true);
     }
+
+    // ==================== ADMIN REPORTS VIEWS ====================
+    async showAdminReports() {
+        if (!this.isAdmin) return;
+        this.showView('admin-reports');
+        await this.loadAdminReports();
+    }
+
+    async loadAdminReports() {
+        const dateVal = document.getElementById('main-report-date').value;
+        const typeVal = document.getElementById('main-report-type').value;
+        const listEl = document.getElementById('main-reports-list');
+        listEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--on-surface-variant);"><span class="material-icons-round spin">sync</span></div>';
+
+        try {
+            let url = '/api/admin/servant-reports?';
+            if (dateVal) url += `date=${dateVal}&`;
+            if (typeVal) url += `type=${typeVal}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            const reports = data.reports || [];
+            
+            // Generate stats
+            const attendance = reports.filter(r => r.report_type === 'attendance').length;
+            const eftikad = reports.filter(r => r.report_type === 'eftikad').length;
+            document.getElementById('main-rstat-attendance').textContent = attendance;
+            document.getElementById('main-rstat-eftikad').textContent = eftikad;
+
+            // Render list
+            if (reports.length === 0) {
+                listEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--on-surface-variant);">No reports found.</div>';
+            } else {
+                listEl.innerHTML = reports.map(r => {
+                    const isAttendance = r.report_type === 'attendance';
+                    const typeIcon = isAttendance ? '📋' : '🏠';
+                    const typeLabel = isAttendance ? 'Attendance' : 'Eftikad';
+                    const typeColor = isAttendance ? 'var(--primary)' : 'var(--gold)';
+                    const unreadDot = r.is_read === 0 
+                        ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--danger);margin-right:8px;"></span>' 
+                        : '';
+                    const dateObj = new Date(r.submitted_at);
+                    const timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+                    return `
+                    <div class="student-card" style="flex-direction:column; align-items:flex-start; position:relative; ${r.is_read===0 ? 'background:rgba(91,142,240,0.08);' : ''}">
+                        <button class="text-btn" onclick="app.deleteAdminReport(${r.id})" style="position:absolute; top:10px; right:10px; color:var(--danger); padding:5px;">
+                            <span class="material-icons-round" style="font-size:18px;">delete</span>
+                        </button>
+                        <div style="display:flex; align-items:center; margin-bottom:8px;">
+                            ${unreadDot}
+                            <span style="font-weight:bold; font-size:1.05rem; color:var(--on-surface);">${r.servant_username}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; width:100%; border-bottom:1px solid var(--outline-variant); padding-bottom:8px; margin-bottom:8px;">
+                            <span style="color:${typeColor}; font-weight:700; font-size:0.85rem;">${typeIcon} ${typeLabel}</span>
+                            <span style="color:var(--on-surface-variant); font-size:0.8rem;">${r.date}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; width:100%; font-size:0.9rem;">
+                            <span>Total: <b>${r.total_count}</b></span>
+                            <span style="color:var(--success);">Present/Visits: <b>${r.present_count}</b></span>
+                            <span style="color:var(--danger);">Absent: <b>${r.absent_count}</b></span>
+                        </div>
+                        <div style="margin-top:8px; font-size:0.75rem; color:var(--on-surface-variant); width:100%; text-align:right;">
+                            Submitted at ${timeStr}
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+            
+            this.updateAdminReportsBadge();
+        } catch (e) {
+            listEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger);">Error loading reports.</div>';
+        }
+    }
+
+    async deleteAdminReport(id) {
+        if (!confirm('Are you sure you want to delete this report?')) return;
+        try {
+            const res = await fetch(`/api/admin/servant-reports/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                this.showToast('Report deleted', 'success');
+                this.loadAdminReports();
+            } else {
+                this.showToast('Failed to delete report', 'error');
+            }
+        } catch(e) {
+            this.showToast('Error deleting report', 'error');
+        }
+    }
+
+    async markAdminReportsRead() {
+        try {
+            await fetch('/api/admin/servant-reports/mark-read', { method: 'POST' });
+            this.showToast('Marked all as read', 'success');
+            this.loadAdminReports();
+        } catch(e) {
+            this.showToast('Error', 'error');
+        }
+    }
+
+    downloadAdminReports() {
+        const dateVal = document.getElementById('main-report-date').value;
+        const typeVal = document.getElementById('main-report-type').value;
+        let url = '/api/admin/servant-reports/download?';
+        if (dateVal) url += `date=${dateVal}&`;
+        if (typeVal) url += `type=${typeVal}`;
+        window.open(url, '_blank');
+        this.showToast('Downloading Excel...', 'info');
+    }
+
+    // =============================================================
 
     async loadAbsenceAlerts(isFullView = false) {
         const alerts = await this.calculateAbsenceAlerts();
@@ -784,6 +1054,7 @@ class AttendanceApp {
         this.showToast(`Marked ${count} students as Present`, 'success');
         await this.loadAttendanceForDate();
         this.updateStats();
+        await this.submitAttendanceReport();
     }
 
     async markAllAbsent() {
@@ -802,6 +1073,60 @@ class AttendanceApp {
         this.showToast(`Marked ${count} students as Absent`, 'warning');
         await this.loadAttendanceForDate();
         this.updateStats();
+        await this.submitAttendanceReport();
+    }
+
+    // ====== REPORT SUBMISSION TO SERVER ======
+
+    async submitAttendanceReport() {
+        if (!this.username) return;  // not logged in
+        try {
+            const date = document.getElementById('attendance-date').value;
+            const allAttendance = await this.getAttendanceForDate(date);
+            const present = allAttendance.filter(a => a.present === true).length;
+            const absent  = allAttendance.filter(a => a.present === false).length;
+            const total   = allAttendance.length;
+
+            await fetch('/api/servant-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    servant_username: this.username,
+                    report_type: 'attendance',
+                    date,
+                    total,
+                    present,
+                    absent,
+                    notes: `Submitted by ${this.username}`
+                })
+            });
+        } catch(e) {
+            // Silent — don't interrupt servant workflow
+        }
+    }
+
+    async submitEftikadReport(visitCount) {
+        if (!this.username) return;
+        try {
+            const now = new Date();
+            const date = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+            await fetch('/api/servant-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    servant_username: this.username,
+                    report_type: 'eftikad',
+                    date,
+                    total: visitCount,
+                    present: visitCount,
+                    absent: 0,
+                    notes: `${visitCount} student visit(s) recorded by ${this.username}`
+                })
+            });
+        } catch(e) {
+            // Silent
+        }
     }
 
 
@@ -1080,10 +1405,12 @@ class AttendanceApp {
                 date,
                 eftikadVal
             );
-            count++;
+            if (eftikadVal) count++;
         }
 
         this.showToast(`Saved visit tracking for ${count} students!`, 'success');
+        // Notify admin
+        if (count > 0) await this.submitEftikadReport(count);
     }
 
     async showServantHistory() {
@@ -1489,6 +1816,10 @@ class AttendanceApp {
     }
 
     async showAddStudent() {
+        if (!this.isAdmin) {
+            this.showToast('Access denied. Admin only.', 'error');
+            return;
+        }
         this.editingStudentId = null;
         document.getElementById('add-student-title').textContent = 'Add Student';
         document.getElementById('student-form').reset();
@@ -1505,6 +1836,12 @@ class AttendanceApp {
     }
 
     async editStudent(id) {
+        if (!this.isAdmin) {
+            // Non-admins can't edit, but maybe they can view details? 
+            // For now, let's keep it restricted as per "normal user" requirement.
+            this.showToast('Access denied. Admin only.', 'error');
+            return;
+        }
         const students = await this.getAllStudents();
         const student = students.find(s => s.id === id);
         if (!student) return;
@@ -1568,40 +1905,8 @@ class AttendanceApp {
         this.showHome();
     }
 
-    toggleAdminMode() {
-        if (!this.isAdmin) {
-            const pin = prompt("Enter Admin PIN:");
-            if (pin !== "2121") {
-                this.showToast("Incorrect Admin PIN", "error");
-                return;
-            }
-        }
-
-        this.isAdmin = !this.isAdmin;
-        document.getElementById('admin-chip').classList.toggle('active', this.isAdmin);
-        document.getElementById('admin-actions').style.display = this.isAdmin ? 'block' : 'none';
-
-        // Change icon to show lock state
-        const adminIcon = document.getElementById('admin-icon');
-        if (adminIcon) {
-            adminIcon.textContent = this.isAdmin ? 'lock_open' : 'lock';
-        }
-
-        const servantAdmin = document.getElementById('servants-admin-actions');
-        if (servantAdmin) servantAdmin.style.display = this.isAdmin ? 'block' : 'none';
-
-        if (this.isAdmin) {
-            this.showToast("Admin mode unlocked 🔓", "success");
-            if (this.currentView === "servants") this.loadServantsList(); // Reload to show edit buttons
-            if (this.currentView === "students") this.loadStudentsList();
-        } else {
-            this.showToast("Admin mode locked 🔒", "info");
-            if (this.currentView === "servants") this.loadServantsList(); // Reload to hide edit buttons
-            if (this.currentView === "students") this.loadStudentsList();
-        }
-    }
-
     async clearAllData() {
+        if (!this.isAdmin) return;
         if (!confirm('Are you sure you want to delete ALL data? This cannot be undone!')) {
             return;
         }
