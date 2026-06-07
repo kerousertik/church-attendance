@@ -1420,7 +1420,7 @@ class AttendanceApp {
                         </div>
                         <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px;">
                             ${chip('Liturgy','church','liturgy',lit)}
-                            ${chip('Tonia/Asharp','music_note','tonia',ton)}
+                            ${chip('Music / Tonia','music_note','tonia',ton)}
                             ${chip('Confession','favorite','confession',conf)}
                             ${chip('Bible Read','menu_book','bible_prayer',bib)}
                         </div>
@@ -1633,7 +1633,13 @@ class AttendanceApp {
         let count = 0;
         for (const card of visibleStudentCards) {
             const studentId = parseInt(card.id.replace('student-', ''));
-            await this.saveAttendanceRecord(studentId, date, true, this.attendanceData[studentId]?.liturgy || null);
+            const d = this.attendanceData[studentId] || {};
+            await this.saveAttendanceRecord(studentId, date, true, d.liturgy || 0, {
+                tonia: d.tonia || 0,
+                confession: d.confession || 0,
+                bible_prayer: d.bible_prayer || 0,
+                questions: d.questions || 0
+            });
             count++;
         }
 

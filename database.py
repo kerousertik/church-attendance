@@ -1359,7 +1359,7 @@ def calculate_and_award_points(student_id: int, date: str, is_present: int, litu
 
     if tonia:
         total_points += 1
-        reasons.append('+1 Tonia/Asharp')
+        reasons.append('+1 Music/Tonia')
 
     if questions and questions > 0:
         total_points += int(questions)
