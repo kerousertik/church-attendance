@@ -1,9 +1,13 @@
 {
-    "appId": "com.stjohn.attendance",
-    "appName": "Attendance",
-    "webDir": "www",
-    "bundledWebRuntime": false,
-    "ios": {
-        "contentInset": "automatic"
-    }
+  "appId": "com.stjohn.attendance",
+  "appName": "StJohn Attendance",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "ios": {
+    "contentInset": "automatic"
+  },
+  "server": {
+    "url": "https://church-attendance-cbsu.onrender.com/",
+    "cleartext": true
+  }
 }

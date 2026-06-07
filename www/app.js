@@ -10,6 +10,11 @@ class AttendanceApp {
         this.currentView = 'login';
         this.userRole = null;
         this.username = null;
+        this.userClassName = 'all';
+        this.assignedGrades = [];
+        this.assignedSections = [];
+        this.isAdmin = false;
+        this.isSubAdmin = false;
         this.editingStudentId = null;
         this.editingServantId = null;
         this.attendanceData = {};
@@ -25,17 +30,28 @@ class AttendanceApp {
 
     async init() {
         await this.initDB();
-        
-        // Restore session
-        const savedRole = localStorage.getItem('userRole');
-        const savedUsername = localStorage.getItem('username');
-        
-        if (savedRole && savedUsername) {
-            this.userRole = savedRole;
-            this.username = savedUsername;
-            this.isAdmin = (savedRole === 'admin');
+
+        const serverSession = await this.getServerSession();
+
+        if (serverSession && serverSession.authenticated) {
+            this.userRole = serverSession.role;
+            this.username = serverSession.username;
+            this.userClassName = serverSession.class_name || 'all';
+            this.assignedGrades = this.parseAssignedGrades(serverSession.assigned_grades || '');
+            this.assignedSections = this.parseAssignedSections(serverSession.assigned_sections || '');
+            this.setRoleFlags(serverSession.role);
+            localStorage.setItem('userRole', serverSession.role);
+            localStorage.setItem('username', serverSession.username);
+            localStorage.setItem('userClassName', this.userClassName);
+            localStorage.setItem('assignedGrades', this.assignedGrades.join(','));
+            localStorage.setItem('assignedSections', this.assignedSections.join(','));
             this.initApp();
         } else {
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('username');
+            localStorage.removeItem('userClassName');
+            localStorage.removeItem('assignedGrades');
+            localStorage.removeItem('assignedSections');
             this.showView('login');
             // Pre-fill remembered username
             const remembered = localStorage.getItem('rememberedUsername');
@@ -46,6 +62,17 @@ class AttendanceApp {
         }
         
         this.setupEventListeners();
+    }
+
+    async getServerSession() {
+        try {
+            const response = await fetch('/api/session');
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (error) {
+            console.warn('Could not verify server session', error);
+            return null;
+        }
     }
 
     initApp() {
@@ -60,19 +87,260 @@ class AttendanceApp {
         document.getElementById('main-nav').style.display = 'flex';
     }
 
+    setRoleFlags(role) {
+        this.userRole = role;
+        this.isAdmin = role === 'admin';
+        this.isSubAdmin = role === 'sub_admin';
+    }
+
+    parseAssignedGrades(grades) {
+        if (Array.isArray(grades)) return grades.map(g => String(g).replace('.0', '').trim()).filter(Boolean);
+        return String(grades || '').split(',').map(g => g.replace('.0', '').trim()).filter(Boolean);
+    }
+
+    parseAssignedSections(sections) {
+        const raw = Array.isArray(sections) ? sections : String(sections || '').split(',');
+        const clean = [];
+        raw.forEach(section => {
+            const normalized = this.normalizeGender(section);
+            if (normalized && !clean.includes(normalized)) clean.push(normalized);
+        });
+        return clean;
+    }
+
+    normalizeGender(gender) {
+        const g = String(gender || '').trim().toLowerCase();
+        if (['boy', 'boys', 'male', 'm', 'b'].includes(g)) return 'Boy';
+        if (['girl', 'girls', 'female', 'f', 'g'].includes(g)) return 'Girl';
+        return '';
+    }
+
+    studentIdentityKey(student) {
+        const name = String(student.name || student.student_name || '').trim().toLowerCase();
+        const grade = String(student.grade || '').replace('.0', '').trim().toLowerCase();
+        const gender = this.normalizeGender(student.gender).toLowerCase();
+        return `${name}|${grade}|${gender}`;
+    }
+
+    jsString(value) {
+        return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    phoneDigits(value) {
+        return String(value || '').replace(/\D/g, '');
+    }
+
+    studentWhatsAppPhone(student) {
+        return this.phoneDigits(student.parent_phone || student.parentPhone || student.phone || '');
+    }
+
+    whatsappUrl(phone, message) {
+        const digits = this.phoneDigits(phone);
+        if (!digits) return '';
+        return `https://wa.me/${digits}?text=${encodeURIComponent(message || '')}`;
+    }
+
+    openWhatsAppForStudent(student, message) {
+        const phone = this.studentWhatsAppPhone(student);
+        if (!phone) {
+            this.showToast('No phone number for this student', 'error');
+            return false;
+        }
+        window.open(this.whatsappUrl(phone, message), '_blank');
+        return true;
+    }
+
+    canSeeAllClasses() {
+        return this.isAdmin;
+    }
+
+    canSeeReports() {
+        return this.isAdmin || this.isSubAdmin;
+    }
+
+    canManageStudentData() {
+        return this.isAdmin || this.isSubAdmin;
+    }
+
+    canManageUsers() {
+        return this.isAdmin;
+    }
+
+    canManageSystemSettings() {
+        return this.isAdmin;
+    }
+
+    isServantUser() {
+        return this.userRole === 'user';
+    }
+
+    async filterStudentsForCurrentRole(students) {
+        if (this.canSeeAllClasses() || !this.username) return students;
+
+        const username = this.username.toString().trim().toLowerCase();
+        const assignedClass = (this.userClassName || '').toString().trim().toLowerCase();
+        const assignedGrades = new Set((this.assignedGrades || []).map(g => String(g).replace('.0', '').trim().toLowerCase()));
+        const assignedSections = new Set((this.assignedSections || []).map(s => this.normalizeGender(s)).filter(Boolean));
+        const sectionAllowed = student => {
+            if (assignedSections.size === 0) return true;
+            return assignedSections.has(this.normalizeGender(student.gender));
+        };
+
+        if (this.isServantUser() && assignedGrades.size > 0) {
+            return students.filter(student => {
+                const studentGrade = String(student.grade || '').replace('.0', '').trim().toLowerCase();
+                return assignedGrades.has(studentGrade) && sectionAllowed(student);
+            });
+        }
+
+        const servants = await this.getAllServants();
+        const servantById = {};
+        servants.forEach(servant => {
+            servantById[servant.id] = servant;
+        });
+
+        return students.filter(student => {
+            const directServant = (student.servant || '').toString().trim().toLowerCase();
+            const directServantId = (student.servantId || '').toString().trim().toLowerCase();
+            const studentClass = (student.class_name || student.className || '').toString().trim().toLowerCase();
+            const studentGradeClass = this.gradeToClassName(student.grade).toLowerCase();
+            const studentGrade = String(student.grade || '').replace('.0', '').trim().toLowerCase();
+            const servantRecord = servantById[student.servantId];
+            const servantName = (servantRecord?.name || '').toString().trim().toLowerCase();
+            const servantEmail = (servantRecord?.email || '').toString().trim().toLowerCase();
+            const servantClass = (servantRecord?.class_name || servantRecord?.className || '').toString().trim().toLowerCase();
+
+            return (assignedGrades.has(studentGrade) && sectionAllowed(student)) ||
+                (assignedClass && assignedClass !== 'all' && (
+                    studentClass === assignedClass ||
+                    studentGradeClass === assignedClass ||
+                    servantClass === assignedClass
+                ) && sectionAllowed(student)) ||
+                directServant === username ||
+                directServantId === username ||
+                servantName === username ||
+                servantEmail === username;
+        });
+    }
+
+    gradeToClassName(grade) {
+        const normalized = String(grade || '').replace('.0', '').trim().toLowerCase();
+        if (!normalized) return '';
+        if (normalized.includes('kg') || normalized === 'k') return 'KG';
+        if (normalized === '4' || normalized.includes('4th')) return '4th Grade';
+        if (normalized === '5' || normalized.includes('5th')) return '5th Grade';
+        if (['6', '7', '8'].includes(normalized) || normalized.includes('middle')) return 'Middle School';
+        if (['9', '10', '11', '12'].includes(normalized) || normalized.includes('high')) return 'High School';
+        return '';
+    }
+
+    classToGrades(className) {
+        const normalized = String(className || '').trim().toLowerCase();
+        if (normalized === 'high school') return ['9', '10', '11', '12'];
+        if (normalized === 'middle school') return ['6', '7', '8'];
+        if (normalized === '4th grade') return ['4'];
+        if (normalized === '5th grade') return ['5'];
+        if (normalized === 'kg') return ['KG'];
+        return [];
+    }
+
+    gradeLabel(grade) {
+        const normalized = String(grade || '').trim();
+        if (normalized.toUpperCase() === 'KG') return 'KG';
+        const n = parseInt(normalized, 10);
+        if (Number.isNaN(n)) return normalized;
+        const suffix = n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th';
+        return `${n}${suffix} Grade`;
+    }
+
+    displayClassName(className) {
+        return !className || className === 'all' ? 'All Classes' : className;
+    }
+
+    assignmentLabel() {
+        const sectionLabel = this.sectionAssignmentLabel();
+        if (this.isServantUser()) {
+            const suffix = sectionLabel ? ` · ${sectionLabel}` : '';
+            if (this.assignedGrades && this.assignedGrades.length > 0) {
+                return `Grades ${this.assignedGrades.join(', ')}${suffix}`;
+            }
+            if (this.userClassName && this.userClassName !== 'all') {
+                return `${this.displayClassName(this.userClassName)}${suffix}`;
+            }
+            return 'No Grades Assigned';
+        }
+        return this.displayClassName(this.userClassName);
+    }
+
+    sectionAssignmentLabel() {
+        if (!this.assignedSections || this.assignedSections.length === 0 || this.assignedSections.length >= 2) {
+            return 'Boys & Girls';
+        }
+        return this.assignedSections[0] === 'Boy' ? 'Boys' : 'Girls';
+    }
+
+    getAvailableSectionsForCurrentRole() {
+        if (this.isServantUser() && this.assignedSections && this.assignedSections.length === 1) {
+            return this.assignedSections;
+        }
+        return ['Boy', 'Girl', 'All'];
+    }
+
+    async getAvailableGradesForCurrentRole() {
+        if (this.isServantUser()) {
+            if (this.assignedGrades.length > 0) {
+                return this.assignedGrades;
+            }
+            if (this.userClassName && this.userClassName !== 'all') {
+                const legacyGrades = this.classToGrades(this.userClassName);
+                if (legacyGrades.length > 0) return legacyGrades;
+            }
+            return [];
+        }
+        if (!this.canSeeAllClasses() && this.userClassName && this.userClassName !== 'all') {
+            const assignedGrades = this.classToGrades(this.userClassName);
+            if (assignedGrades.length > 0) return assignedGrades;
+        }
+
+        const students = await this.filterStudentsForCurrentRole(await this.getAllStudents());
+        const gradeSet = new Set();
+        students.forEach(student => {
+            const grade = String(student.grade || '').replace('.0', '').trim();
+            if (grade) gradeSet.add(grade);
+        });
+        const grades = [...gradeSet].sort((a, b) => {
+            const an = parseInt(a, 10);
+            const bn = parseInt(b, 10);
+            if (Number.isNaN(an) || Number.isNaN(bn)) return a.localeCompare(b);
+            return an - bn;
+        });
+
+        if (grades.length > 0) return grades;
+
+        return ['KG', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+    }
+
     updateUIForRole() {
         const adminElements = document.querySelectorAll('.admin-section, #admin-actions, #servants-admin-actions');
         adminElements.forEach(el => {
-            el.style.display = this.isAdmin ? 'block' : 'none';
+            el.style.display = this.canManageStudentData() ? 'block' : 'none';
+        });
+
+        document.querySelectorAll('[data-role-admin-only]').forEach(el => {
+            el.style.display = this.isAdmin ? '' : 'none';
+        });
+        document.querySelectorAll('[data-role-student-manager]').forEach(el => {
+            el.style.display = this.canManageStudentData() ? '' : 'none';
         });
 
         // Update username display
-        document.getElementById('display-username').textContent = this.username || 'User';
+        const classLabel = this.assignmentLabel();
+        document.getElementById('display-username').textContent = `${this.username || 'User'} - ${classLabel}`;
         
         // User badge styling
         const userDisplay = document.getElementById('user-display');
-        userDisplay.classList.remove('admin-role', 'user-role');
-        userDisplay.classList.add(this.isAdmin ? 'admin-role' : 'user-role');
+        userDisplay.classList.remove('admin-role', 'sub-admin-role', 'user-role');
+        userDisplay.classList.add(this.isAdmin ? 'admin-role' : (this.isSubAdmin ? 'sub-admin-role' : 'user-role'));
     }
 
     async login(event) {
@@ -101,13 +369,18 @@ class AttendanceApp {
             const result = await response.json();
 
             if (result.success) {
-                this.userRole = result.role;
                 this.username = result.username;
-                this.isAdmin = (result.role === 'admin');
+                this.userClassName = result.class_name || 'all';
+                this.assignedGrades = this.parseAssignedGrades(result.assigned_grades || '');
+                this.assignedSections = this.parseAssignedSections(result.assigned_sections || '');
+                this.setRoleFlags(result.role);
                 
                 // Save session
                 localStorage.setItem('userRole', result.role);
                 localStorage.setItem('username', result.username);
+                localStorage.setItem('userClassName', this.userClassName);
+                localStorage.setItem('assignedGrades', this.assignedGrades.join(','));
+                localStorage.setItem('assignedSections', this.assignedSections.join(','));
 
                 // Handle Remember Me
                 const isRemembered = document.getElementById('remember-me').checked;
@@ -117,7 +390,7 @@ class AttendanceApp {
                     localStorage.removeItem('rememberedUsername');
                 }
 
-                this.showToast(`Welcome back, ${result.username}!`, 'success');
+                this.showToast(`Welcome back, ${result.username}! Assigned: ${this.assignmentLabel()}`, 'success');
                 
                 // Reset form
                 event.target.reset();
@@ -136,15 +409,28 @@ class AttendanceApp {
         }
     }
 
-    logout() {
+    async logout() {
         if (!confirm('Are you sure you want to sign out?')) return;
+
+        try {
+            await fetch('/api/logout', { method: 'POST' });
+        } catch (error) {
+            console.warn('Could not clear server session', error);
+        }
         
         localStorage.removeItem('userRole');
         localStorage.removeItem('username');
+        localStorage.removeItem('userClassName');
+        localStorage.removeItem('assignedGrades');
+        localStorage.removeItem('assignedSections');
         
         this.userRole = null;
         this.username = null;
+        this.userClassName = 'all';
+        this.assignedGrades = [];
+        this.assignedSections = [];
         this.isAdmin = false;
+        this.isSubAdmin = false;
         
         // Hide header and navigation
         document.getElementById('main-header').style.display = 'none';
@@ -262,32 +548,29 @@ class AttendanceApp {
         });
     }
 
-    async saveAttendanceRecord(studentId, date, present, liturgy = null) {
+    async saveAttendanceRecord(studentId, date, present, liturgy = null, extras = {}) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['attendance'], 'readwrite');
             const store = transaction.objectStore('attendance');
             const index = store.index('dateStudent');
 
-            // Check if record exists
             const getRequest = index.get([date, studentId]);
             getRequest.onsuccess = () => {
                 const existing = getRequest.result;
-                if (existing) {
-                    existing.present = present;
-                    existing.liturgy = liturgy;
-                    store.put(existing);
-                } else {
-                    store.add({
-                        studentId,
-                        date,
-                        present,
-                        liturgy,
-                        timestamp: new Date().toISOString()
-                    });
-                }
+                const record = {
+                    ...(existing || { studentId, date, timestamp: new Date().toISOString() }),
+                    present,
+                    liturgy: liturgy || 0,
+                    tonia:      extras.tonia      || 0,
+                    confession: extras.confession || 0,
+                    bible_prayer: extras.bible_prayer || 0,
+                    questions:  extras.questions  || 0
+                };
+                if (existing) store.put(record);
+                else          store.add(record);
             };
             transaction.oncomplete = () => resolve();
-            transaction.onerror = () => reject(transaction.error);
+            transaction.onerror   = () => reject(transaction.error);
         });
     }
 
@@ -420,7 +703,7 @@ class AttendanceApp {
     }
 
     async calculateAbsenceAlerts() {
-        const students = await this.getAllStudents();
+        const students = await this.filterStudentsForCurrentRole(await this.getAllStudents());
         const allAttendance = await this.getAllAttendance();
         const servants = await this.getAllServants();
         const servantMap = {};
@@ -476,9 +759,11 @@ class AttendanceApp {
     }
 
     async updateStats() {
-        const students = await this.getAllStudents();
+        const students = await this.filterStudentsForCurrentRole(await this.getAllStudents());
         const todayStr = new Date().toISOString().split('T')[0];
-        const todayAttendance = await this.getAttendanceForDate(todayStr);
+        const visibleStudentIds = new Set(students.map(s => s.id));
+        const todayAttendance = (await this.getAttendanceForDate(todayStr))
+            .filter(a => visibleStudentIds.has(a.studentId));
 
         const present = todayAttendance.filter(a => a.present).length;
         const absent = todayAttendance.filter(a => !a.present).length;
@@ -494,9 +779,19 @@ class AttendanceApp {
     }
 
     showView(viewId) {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.querySelectorAll('.view').forEach(v => {
+            v.classList.remove('active');
+            v.style.display = 'none';
+        });
         const targetView = document.getElementById(`view-${viewId}`);
-        if (targetView) targetView.classList.add('active');
+        if (targetView) {
+            const mainContent = document.querySelector('.main-content');
+            if (mainContent && targetView.parentElement !== mainContent) {
+                mainContent.appendChild(targetView);
+            }
+            targetView.classList.add('active');
+            targetView.style.display = 'block';
+        }
 
         // Manage Header/Nav visibility
         const isLoginView = viewId === 'login';
@@ -522,7 +817,7 @@ class AttendanceApp {
         // Admin-only Servant Reports tile on main dashboard
         const adminTile = document.getElementById('admin-reports-tile');
         if (adminTile) {
-            if (this.isAdmin) {
+            if (this.canSeeReports()) {
                 adminTile.style.display = 'block';
                 this.updateAdminReportsBadge();
             } else {
@@ -532,7 +827,7 @@ class AttendanceApp {
     }
 
     async updateAdminReportsBadge() {
-        if (!this.isAdmin) return;
+        if (!this.canSeeReports()) return;
         try {
             const res = await fetch('/api/admin/servant-reports/unread-count');
             const data = await res.json();
@@ -620,7 +915,7 @@ class AttendanceApp {
 
     // ==================== ADMIN REPORTS VIEWS ====================
     async showAdminReports() {
-        if (!this.isAdmin) return;
+        if (!this.canSeeReports()) return;
         this.showView('admin-reports');
         await this.loadAdminReports();
     }
@@ -798,6 +1093,42 @@ class AttendanceApp {
         document.getElementById('filter-view-title').textContent =
             targetView === 'attendance' ? 'Attendance Section' : 'Student Section';
 
+        const availableGrades = await this.getAvailableGradesForCurrentRole();
+        const gradeGrid = document.getElementById('grade-filter-grid');
+        if (availableGrades.length === 0) {
+            this.filterGrades = [];
+            gradeGrid.innerHTML = `
+                <div style="grid-column:1/-1;padding:14px;border-radius:14px;background:var(--surface-container-high);color:var(--on-surface-variant);text-align:center;font-weight:700;">
+                    No grades assigned to this account.
+                </div>
+            `;
+            document.querySelectorAll('#gender-filter-grid .filter-chip').forEach(c => c.classList.remove('active'));
+            this.showView('select-filter');
+            return;
+        }
+        gradeGrid.innerHTML = availableGrades.map(grade => `
+            <button class="filter-chip" onclick="app.setFilterGrade('${grade}', this)">${this.gradeLabel(grade)}</button>
+        `).join('') + `
+            <button class="filter-chip" onclick="app.setFilterGrade('All', this)" style="grid-column: span 2;">All Grades</button>
+        `;
+
+        const availableSections = this.getAvailableSectionsForCurrentRole();
+        const genderGrid = document.getElementById('gender-filter-grid');
+        genderGrid.innerHTML = availableSections.map(section => {
+            const label = section === 'All' ? 'Both Boys & Girls' : (section === 'Boy' ? 'Boys' : 'Girls');
+            const span = section === 'All' ? ' style="grid-column: span 2;"' : '';
+            return `<button class="filter-chip" onclick="app.setFilterGender('${section}', this)"${span}>${label}</button>`;
+        }).join('');
+
+        this.filterGrades = this.filterGrades.filter(grade => availableGrades.includes(grade));
+        if (this.filterGrades.length === 0 && availableGrades.length > 0) {
+            this.filterGrades = [...availableGrades];
+        }
+
+        if (!availableSections.includes(this.filterGender)) {
+            this.filterGender = availableSections.includes('All') ? 'All' : availableSections[0];
+        }
+
         // Reset chips
         document.querySelectorAll('#grade-filter-grid .filter-chip').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('#gender-filter-grid .filter-chip').forEach(c => c.classList.remove('active'));
@@ -808,7 +1139,7 @@ class AttendanceApp {
 
         gradeChips.forEach(c => {
             const grade = c.getAttribute('onclick').match(/'(.*?)'/)[1];
-            if (this.filterGrades.includes(grade) || (grade === 'All' && this.filterGrades.length === 3)) {
+            if (this.filterGrades.includes(grade) || (grade === 'All' && this.filterGrades.length === availableGrades.length)) {
                 c.classList.add('active');
             }
         });
@@ -825,14 +1156,17 @@ class AttendanceApp {
 
     setFilterGrade(grade, el) {
         const gradeChips = document.querySelectorAll('#grade-filter-grid .filter-chip');
+        const availableGrades = Array.from(gradeChips)
+            .map(c => c.getAttribute('onclick').match(/'(.*?)'/)[1])
+            .filter(g => g !== 'All');
 
         if (grade === 'All') {
-            const isAllSelected = this.filterGrades.length === 3;
+            const isAllSelected = this.filterGrades.length === availableGrades.length;
             if (isAllSelected) {
                 this.filterGrades = [];
                 gradeChips.forEach(c => c.classList.remove('active'));
             } else {
-                this.filterGrades = ['6', '7', '8'];
+                this.filterGrades = [...availableGrades];
                 gradeChips.forEach(c => c.classList.add('active'));
             }
             return;
@@ -847,9 +1181,9 @@ class AttendanceApp {
         }
 
         // Update "Both Grades" chip active state
-        const allChip = Array.from(gradeChips).find(c => c.textContent.includes('Both'));
+        const allChip = Array.from(gradeChips).find(c => c.textContent.includes('All Grades'));
         if (allChip) {
-            if (this.filterGrades.length === 3) allChip.classList.add('active');
+            if (this.filterGrades.length === availableGrades.length) allChip.classList.add('active');
             else allChip.classList.remove('active');
         }
     }
@@ -879,7 +1213,7 @@ class AttendanceApp {
 
     async loadAttendanceForDate() {
         const date = document.getElementById('attendance-date').value;
-        let students = await this.getAllStudents();
+        let students = await this.filterStudentsForCurrentRole(await this.getAllStudents());
         const attendance = await this.getAttendanceForDate(date);
 
         // Apply Grade/Gender filters
@@ -899,7 +1233,7 @@ class AttendanceApp {
         }
 
         const attendanceMap = {};
-        attendance.forEach(a => attendanceMap[a.studentId] = a.present);
+        attendance.forEach(a => attendanceMap[a.studentId] = a);
         this.attendanceData = {};
 
         const container = document.getElementById('attendance-list');
@@ -915,126 +1249,267 @@ class AttendanceApp {
         }
 
         container.innerHTML = students.map(s => {
-            const isPresent = attendanceMap[s.id] === true;
-            const isAbsent = attendanceMap[s.id] === false;
+            const rec      = attendanceMap[s.id] || {};
+            const isPresent = rec.present === true;
+            const isAbsent  = rec.present === false;
             const statusClass = isPresent ? 'is-present' : (isAbsent ? 'is-absent' : '');
 
-            const record = attendance.find(a => a.studentId === s.id);
-            const liturgy = record?.liturgy || null;
+            // Load saved V2 values
+            const lit  = rec.liturgy      || 0;
+            const ton  = rec.tonia        || 0;
+            const conf = rec.confession   || 0;
+            const bib  = rec.bible_prayer || 0;
+            const qs   = Number(rec.questions || 0);
 
             this.attendanceData[s.id] = {
-                present: attendanceMap[s.id],
-                liturgy: liturgy
+                present: rec.present,
+                liturgy: lit, tonia: ton, confession: conf,
+                bible_prayer: bib, questions: qs
             };
+
+            const chip = (label, icon, field, val) => `
+                <label style="display:flex;align-items:center;gap:5px;background:${val?'var(--primary)':'var(--surface-variant)'};
+                    color:${val?'white':'var(--on-surface-variant)'};
+                    padding:5px 10px;border-radius:20px;cursor:pointer;font-size:0.78rem;font-weight:600;
+                    transition:all 0.2s;">
+                    <input type="checkbox" style="display:none" ${val?'checked':''}
+                        onchange="app.updateAttendanceField(${s.id},'${field}',this.checked?1:0)">
+                    <span class="material-icons-round" style="font-size:14px;">${icon}</span>${label}
+                </label>`;
 
             return `
                 <div class="student-card ${statusClass}" id="student-${s.id}">
-                    <div class="student-info-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                         <div>
-                            <div class="student-name" style="font-size: 1.1rem; font-weight: 700;">${s.name}</div>
-                            <div class="student-grade" style="color: var(--on-surface-variant); font-size: 0.85rem;">
-                                ${s.grade ? `Grade ${s.grade}` : ''} ${s.gender ? `• ${s.gender}` : ''}
-                            </div>
+                            <div style="font-size:1.05rem;font-weight:700;">${s.name}</div>
+                            <div style="color:var(--on-surface-variant);font-size:0.82rem;">${s.grade?'Grade '+s.grade:''}${s.gender?' · '+s.gender:''}</div>
                         </div>
-                        <div class="attendance-status-badge" style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; ${isPresent ? 'background: var(--success); color: white;' : (isAbsent ? 'background: var(--error); color: white;' : 'background: var(--surface-variant); color: var(--on-surface-variant);')}">
-                            ${isPresent ? 'Present' : (isAbsent ? 'Absent' : 'Not Marked')}
+                        <div id="badge-${s.id}" style="font-size:0.72rem;font-weight:800;text-transform:uppercase;padding:4px 10px;border-radius:20px;
+                            ${isPresent?'background:var(--success);color:white;':(isAbsent?'background:var(--error);color:white;':'background:var(--surface-variant);color:var(--on-surface-variant);')}">
+                            ${isPresent?'Present':(isAbsent?'Absent':'Not Marked')}
                         </div>
                     </div>
                     <div class="attendance-buttons">
-                        <button class="att-btn present ${isPresent ? 'active' : ''}" 
-                                onclick="app.markAttendance(${s.id}, true)">
-                            <span class="material-icons-round">check</span>
-                            <span>Present</span>
+                        <button class="att-btn present ${isPresent?'active':''}" onclick="app.markAttendance(${s.id},true)">
+                            <span class="material-icons-round">check</span><span>Present</span>
                         </button>
-                        <button class="att-btn absent ${isAbsent ? 'active' : ''}" 
-                                onclick="app.markAttendance(${s.id}, false)">
-                            <span class="material-icons-round">close</span>
-                            <span>Absent</span>
+                        <button class="att-btn absent ${isAbsent?'active':''}" onclick="app.markAttendance(${s.id},false)">
+                            <span class="material-icons-round">close</span><span>Absent</span>
                         </button>
                     </div>
-                    <div class="attendance-details" id="details-${s.id}" style="${isPresent === true ? '' : 'display:none; margin-top: 10px;'}">
-                        <div class="liturgy-options" style="display: flex; gap: 15px;">
-                            <label class="radio-label">
-                                <input type="radio" name="liturgy-${s.id}" value="full" 
-                                       ${liturgy === 'full' ? 'checked' : ''}
-                                       onchange="app.updateLiturgy(${s.id}, 'full')">
-                                <span>Attended Liturgy</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="liturgy-${s.id}" value="sunday_school" 
-                                       ${liturgy === 'sunday_school' ? 'checked' : ''}
-                                       onchange="app.updateLiturgy(${s.id}, 'sunday_school')">
-                                <span>Sunday School Only</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="liturgy-${s.id}" value="both" 
-                                       ${liturgy === 'both' ? 'checked' : ''}
-                                       onchange="app.updateLiturgy(${s.id}, 'both')">
-                                <span>Both</span>
-                            </label>
+                    <!-- V2 Detail Fields (shown only when Present) -->
+                    <div id="details-${s.id}" style="${isPresent?'':'display:none;'}margin-top:12px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+                            <div style="font-size:0.72rem;font-weight:700;color:var(--on-surface-variant);text-transform:uppercase;letter-spacing:0.5px;">Sunday Details</div>
+                            <button type="button" onclick="app.selectAllSundayDetails(${s.id})"
+                                style="display:inline-flex;align-items:center;gap:4px;border:none;border-radius:16px;padding:5px 9px;
+                                background:rgba(91,142,240,0.16);color:var(--primary-light);font-size:0.72rem;font-weight:800;cursor:pointer;">
+                                <span class="material-icons-round" style="font-size:14px;">done_all</span>Select All
+                            </button>
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px;">
+                            ${chip('Liturgy','church','liturgy',lit)}
+                            ${chip('Tonia/Asharp','music_note','tonia',ton)}
+                            ${chip('Confession','favorite','confession',conf)}
+                            ${chip('Bible Read','menu_book','bible_prayer',bib)}
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <span style="font-size:0.8rem;color:var(--on-surface-variant);font-weight:600;">Questions answered:</span>
+                            <div style="display:flex;gap:4px;">
+                                ${[0,1,2,3,4,5].map(n=>`<button onclick="app.updateAttendanceField(${s.id},'questions',${n})" id="q-${s.id}-${n}"
+                                    style="width:28px;height:28px;border-radius:50%;border:none;font-size:0.75rem;font-weight:700;cursor:pointer;
+                                    background:${qs===n?'var(--primary)':'var(--surface-variant)'};
+                                    color:${qs===n?'white':'var(--on-surface-variant)'};
+                                    transition:all 0.2s;">${n}</button>`).join('')}
+                                <button onclick="app.promptCustomQuestions(${s.id})" id="q-${s.id}-more"
+                                    title="Enter more than 5 questions"
+                                    style="width:28px;height:28px;border-radius:50%;border:none;font-size:0.75rem;font-weight:800;cursor:pointer;
+                                    background:${qs>5?'var(--primary)':'var(--surface-variant)'};
+                                    color:${qs>5?'white':'var(--on-surface-variant)'};
+                                    transition:all 0.2s;">${qs>5?qs:'+'}</button>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
         }).join('');
+
+        // Show/hide the submit button
+        const btn = document.getElementById('submit-batch-btn');
+        if (btn) btn.style.display = students.length > 0 ? '' : 'none';
     }
 
     async markAttendance(studentId, present) {
-        if (!this.attendanceData[studentId]) {
-            this.attendanceData[studentId] = {};
-        }
+        if (!this.attendanceData[studentId]) this.attendanceData[studentId] = {};
         this.attendanceData[studentId].present = present;
 
         const card = document.getElementById(`student-${studentId}`);
         if (card) {
             card.querySelectorAll('.att-btn').forEach(b => b.classList.remove('active'));
             card.querySelector(present ? '.present' : '.absent').classList.add('active');
-
-            // Update visual state
             card.classList.remove('is-present', 'is-absent');
             card.classList.add(present ? 'is-present' : 'is-absent');
 
-            const badge = card.querySelector('.attendance-status-badge');
+            const badge = document.getElementById(`badge-${studentId}`);
             if (badge) {
                 badge.textContent = present ? 'Present' : 'Absent';
                 badge.style.background = present ? 'var(--success)' : 'var(--error)';
                 badge.style.color = 'white';
             }
-
-            // Show/hide details based on presence
             const details = document.getElementById(`details-${studentId}`);
-            if (details) {
-                details.style.display = present ? '' : 'none';
-            }
+            if (details) details.style.display = present ? '' : 'none';
         }
 
-        // Auto-save to DB
         const date = document.getElementById('attendance-date').value;
-        await this.saveAttendanceRecord(
-            parseInt(studentId),
-            date,
-            present,
-            this.attendanceData[studentId].liturgy || null
-        );
+        const d = this.attendanceData[studentId];
+        await this.saveAttendanceRecord(parseInt(studentId), date, present, d.liturgy || 0, {
+            tonia: d.tonia || 0, confession: d.confession || 0,
+            bible_prayer: d.bible_prayer || 0, questions: d.questions || 0
+        });
         this.updateStats();
     }
 
-    async updateLiturgy(studentId, value) {
-        if (!this.attendanceData[studentId]) {
-            this.attendanceData[studentId] = {};
-        }
-        this.attendanceData[studentId].liturgy = value;
+    async updateAttendanceField(studentId, field, value) {
+        if (!this.attendanceData[studentId]) this.attendanceData[studentId] = {};
+        this.attendanceData[studentId][field] = value;
 
-        // Auto-save to DB
+        // Refresh question buttons or chip color
+        if (field === 'questions') {
+            value = Math.max(0, parseInt(value, 10) || 0);
+            this.attendanceData[studentId][field] = value;
+            [0,1,2,3,4,5].forEach(n => {
+                const btn = document.getElementById(`q-${studentId}-${n}`);
+                if (btn) {
+                    btn.style.background = n === value ? 'var(--primary)' : 'var(--surface-variant)';
+                    btn.style.color = n === value ? 'white' : 'var(--on-surface-variant)';
+                }
+            });
+            const moreBtn = document.getElementById(`q-${studentId}-more`);
+            if (moreBtn) {
+                moreBtn.textContent = value > 5 ? value : '+';
+                moreBtn.style.background = value > 5 ? 'var(--primary)' : 'var(--surface-variant)';
+                moreBtn.style.color = value > 5 ? 'white' : 'var(--on-surface-variant)';
+            }
+        } else {
+            // Refresh checkbox label colour
+            const lbl = document.querySelector(`#student-${studentId} input[onchange*="'${field}'"]`)?.parentElement;
+            if (lbl) {
+                lbl.style.background = value ? 'var(--primary)' : 'var(--surface-variant)';
+                lbl.style.color = value ? 'white' : 'var(--on-surface-variant)';
+            }
+        }
+
         const date = document.getElementById('attendance-date').value;
-        const present = this.attendanceData[studentId].present;
-        if (present !== undefined) {
-            await this.saveAttendanceRecord(
-                parseInt(studentId),
-                date,
-                present,
-                value
-            );
+        const d = this.attendanceData[studentId];
+        if (d.present !== undefined) {
+            await this.saveAttendanceRecord(parseInt(studentId), date, d.present, d.liturgy || 0, {
+                tonia: d.tonia || 0, confession: d.confession || 0,
+                bible_prayer: d.bible_prayer || 0, questions: d.questions || 0
+            });
+        }
+    }
+
+    async updateLiturgy(studentId, value) {
+        await this.updateAttendanceField(studentId, 'liturgy', value);
+    }
+
+    async promptCustomQuestions(studentId) {
+        const current = this.attendanceData[studentId]?.questions || 0;
+        const raw = prompt('Questions answered:', current > 5 ? current : '');
+        if (raw === null) return;
+
+        const value = parseInt(raw, 10);
+        if (Number.isNaN(value) || value < 0) {
+            this.showToast('Enter a valid question count', 'error');
+            return;
+        }
+
+        await this.updateAttendanceField(studentId, 'questions', value);
+    }
+
+    async selectAllSundayDetails(studentId) {
+        if (!this.attendanceData[studentId]) this.attendanceData[studentId] = {};
+        const fields = ['liturgy', 'tonia', 'confession', 'bible_prayer'];
+        fields.forEach(field => {
+            this.attendanceData[studentId][field] = 1;
+            const input = document.querySelector(`#student-${studentId} input[onchange*="'${field}'"]`);
+            if (input) {
+                input.checked = true;
+                const label = input.parentElement;
+                label.style.background = 'var(--primary)';
+                label.style.color = 'white';
+            }
+        });
+
+        const date = document.getElementById('attendance-date').value;
+        const d = this.attendanceData[studentId];
+        if (d.present !== undefined) {
+            await this.saveAttendanceRecord(parseInt(studentId), date, d.present, d.liturgy || 0, {
+                tonia: d.tonia || 0, confession: d.confession || 0,
+                bible_prayer: d.bible_prayer || 0, questions: d.questions || 0
+            });
+        }
+        this.showToast('Sunday details selected', 'success');
+    }
+
+    // Submit full day's attendance to server for points calculation
+    async submitBatchAttendance() {
+        const date = document.getElementById('attendance-date').value;
+        if (!date) { this.showToast('Pick a date first', 'error'); return; }
+
+        const btn = document.getElementById('submit-batch-btn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-icons-round spin">sync</span> Submitting...'; }
+
+        const attendance = await this.getAttendanceForDate(date);
+        const students = await this.filterStudentsForCurrentRole(await this.getAllStudents());
+        const studentById = {};
+        students.forEach(student => {
+            studentById[student.id] = student;
+        });
+        const records = attendance
+            .filter(a => a.present !== undefined)
+            .map(a => {
+                const student = studentById[a.studentId] || {};
+                return {
+                    student_id:   a.studentId,
+                    student_name: student.name || '',
+                    grade:        student.grade || '',
+                    gender:       student.gender || '',
+                    servant:      student.servant || this.username || '',
+                    phone:        student.phone || '',
+                    parent_phone: student.parent_phone || student.parentPhone || '',
+                    status:       a.present ? 'present' : 'absent',
+                    liturgy:      a.liturgy      || 0,
+                    tonia:        a.tonia        || 0,
+                    confession:   a.confession   || 0,
+                    bible_prayer: a.bible_prayer || 0,
+                    questions:    a.questions    || 0
+                };
+            });
+
+        if (records.length === 0) {
+            this.showToast('No attendance marked yet', 'error');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round">cloud_upload</span> Submit & Award Points'; }
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/batch-attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date, records })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.showToast(`Submitted ${data.count} records & points calculated!`, 'success');
+                await this.submitAttendanceReport();
+            } else {
+                this.showToast(data.error || 'Submit failed', 'error');
+            }
+        } catch(e) {
+            this.showToast('Network error — server reachable?', 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round">cloud_upload</span> Submit & Award Points'; }
         }
     }
 
@@ -1140,7 +1615,7 @@ class AttendanceApp {
     }
 
     async loadStudentsList(filter = '') {
-        let students = await this.getAllStudents();
+        let students = await this.filterStudentsForCurrentRole(await this.getAllStudents());
 
         // Apply Grade/Gender filters
         if (this.filterGrades.length > 0) {
@@ -1816,8 +2291,8 @@ class AttendanceApp {
     }
 
     async showAddStudent() {
-        if (!this.isAdmin) {
-            this.showToast('Access denied. Admin only.', 'error');
+        if (!this.canManageStudentData()) {
+            this.showToast('Access denied. Admin or Sub-admin only.', 'error');
             return;
         }
         this.editingStudentId = null;
@@ -1836,10 +2311,8 @@ class AttendanceApp {
     }
 
     async editStudent(id) {
-        if (!this.isAdmin) {
-            // Non-admins can't edit, but maybe they can view details? 
-            // For now, let's keep it restricted as per "normal user" requirement.
-            this.showToast('Access denied. Admin only.', 'error');
+        if (!this.canManageStudentData()) {
+            this.showToast('Access denied. Admin or Sub-admin only.', 'error');
             return;
         }
         const students = await this.getAllStudents();
@@ -1863,6 +2336,10 @@ class AttendanceApp {
 
     async saveStudent(event) {
         event.preventDefault();
+        if (!this.canManageStudentData()) {
+            this.showToast('Access denied. Admin or Sub-admin only.', 'error');
+            return;
+        }
 
         const student = {
             name: document.getElementById('student-name').value.trim(),
@@ -1906,7 +2383,10 @@ class AttendanceApp {
     }
 
     async clearAllData() {
-        if (!this.isAdmin) return;
+        if (!this.canManageSystemSettings()) {
+            this.showToast('Access denied. Admin only.', 'error');
+            return;
+        }
         if (!confirm('Are you sure you want to delete ALL data? This cannot be undone!')) {
             return;
         }
@@ -2310,6 +2790,625 @@ class AttendanceApp {
         XLSX.writeFile(wb, 'student-import-template.xlsx');
 
         this.showToast('Template downloaded!', 'success');
+    }
+
+    // ==================== NEW FEATURE METHODS ====================
+
+    setNavActive(id) {
+        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+        const el = document.getElementById(id);
+        if (el) el.classList.add('active');
+    }
+
+    showMore() {
+        this.showView('more');
+        this.setNavActive('nav-more');
+        const canManageStudentData = this.canManageStudentData();
+        document.getElementById('more-admin-actions').style.display = canManageStudentData ? '' : 'none';
+        const rTile = document.getElementById('admin-reports-tile-more');
+        if (rTile) rTile.style.display = this.canSeeReports() ? '' : 'none';
+        this.updateUIForRole();
+    }
+
+    // ---- POINTS ----
+    async showPoints() {
+        this.showView('points');
+        this.setNavActive('nav-points');
+        await this._populateServantFilters(['points-servant-filter']);
+        await this.loadPoints();
+        // Only admin/sub_admin can clear
+        document.getElementById('clear-points-section').style.display = this.canManageStudentData() ? '' : 'none';
+    }
+
+    async loadPoints() {
+        const servant = document.getElementById('points-servant-filter').value;
+        const url = servant && servant !== 'all' ? `/api/points/all?servant=${encodeURIComponent(servant)}` : '/api/points/all';
+        const res = await fetch(url);
+        const data = await res.json();
+        const serverStudents = this.canSeeAllClasses() ? (data.students || []) : await this.filterStudentsForCurrentRole(data.students || []);
+        let students = serverStudents;
+        if (!this.canSeeAllClasses()) {
+            const merged = new Map();
+            serverStudents.forEach(student => {
+                merged.set(this.studentIdentityKey(student), { ...student, _serverPointsId: student.id });
+            });
+            const localStudents = await this.filterStudentsForCurrentRole(await this.getAllStudents());
+            localStudents.forEach(student => {
+                const key = this.studentIdentityKey(student);
+                if (!merged.has(key)) {
+                    merged.set(key, { ...student, points: 0, _serverPointsId: null });
+                }
+            });
+            students = [...merged.values()].sort((a, b) => (b.points || 0) - (a.points || 0));
+        }
+        this._pointsRows = {};
+        students.forEach(student => {
+            this._pointsRows[this.studentIdentityKey(student)] = student;
+        });
+
+        const totalPts = students.reduce((s, st) => s + (st.points || 0), 0);
+        document.getElementById('points-total-display').textContent = totalPts;
+        document.getElementById('points-students-count').textContent = students.length;
+        const average = students.length ? Math.round(totalPts / students.length) : 0;
+        const topStudent = students.length ? students.reduce((top, st) => ((st.points || 0) > (top.points || 0) ? st : top), students[0]) : null;
+        const averageEl = document.getElementById('points-average-display');
+        const topEl = document.getElementById('points-top-student');
+        if (averageEl) averageEl.textContent = average;
+        if (topEl) topEl.textContent = topStudent ? `${topStudent.name} (${topStudent.points || 0})` : '--';
+        this.renderPointsClassBreakdown(students);
+
+        const container = document.getElementById('points-list');
+        if (students.length === 0) {
+            container.innerHTML = `<div class="empty-state"><span class="material-icons-round">star_border</span><p>No points yet</p></div>`;
+            return;
+        }
+        container.innerHTML = students.map((s, i) => {
+            const key = this.jsString(this.studentIdentityKey(s));
+            return `
+            <div onclick="app.showStudentPoints('${key}', '${this.jsString(s.name)}')"
+                style="display:flex;align-items:center;gap:12px;background:var(--surface-container-high);border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s;">
+                <div style="width:32px;height:32px;border-radius:50%;background:${i===0?'#FFD700':i===1?'#C0C0C0':i===2?'#CD7F32':'var(--surface-variant)'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;color:${i<3?'#000':'var(--on-surface-variant)'};">${i+1}</div>
+                <div style="flex:1;">
+                    <div style="font-weight:600;font-size:0.95rem;">${s.name}</div>
+                    <div style="font-size:0.75rem;color:var(--on-surface-variant);">${s.servant || ''} ${s.grade ? '· Grade '+s.grade : ''}</div>
+                </div>
+                <div style="font-size:1.4rem;font-weight:800;color:var(--primary);">${s.points || 0}</div>
+                <span class="material-icons-round" style="font-size:16px;color:var(--on-surface-variant);">chevron_right</span>
+            </div>
+        `;
+        }).join('');
+    }
+
+    renderPointsClassBreakdown(students) {
+        const container = document.getElementById('points-class-breakdown');
+        if (!container) return;
+
+        const groups = new Map();
+        students.forEach(student => {
+            const className = student.class_name || this.gradeToClassName(student.grade) || student.servant || 'Unassigned';
+            if (!groups.has(className)) {
+                groups.set(className, { students: 0, points: 0 });
+            }
+            const group = groups.get(className);
+            group.students += 1;
+            group.points += student.points || 0;
+        });
+
+        if (groups.size === 0) {
+            container.innerHTML = '<div style="padding:12px;border-radius:12px;background:var(--surface-container-high);color:var(--on-surface-variant);text-align:center;">No class points yet</div>';
+            return;
+        }
+
+        container.innerHTML = [...groups.entries()]
+            .sort((a, b) => b[1].points - a[1].points)
+            .map(([name, group]) => `
+                <div style="display:flex;align-items:center;gap:10px;background:var(--surface-container-high);border-radius:12px;padding:10px 12px;">
+                    <div style="flex:1;">
+                        <div style="font-weight:800;font-size:0.9rem;">${name}</div>
+                        <div style="font-size:0.74rem;color:var(--on-surface-variant);">${group.students} students</div>
+                    </div>
+                    <div style="font-size:1.1rem;font-weight:900;color:var(--primary);">${group.points}</div>
+                </div>
+            `).join('');
+    }
+
+    async showStudentPoints(studentKey, name) {
+        const row = this._pointsRows?.[studentKey] || {};
+        const studentId = row._serverPointsId || row.id || null;
+        this._currentPointsStudentId = row._serverPointsId || null;
+        document.getElementById('points-detail-name').textContent = name;
+        const manualControls = document.getElementById('points-manual-controls');
+        if (manualControls) {
+            manualControls.style.display = this.canManageStudentData() ? 'flex' : 'none';
+        }
+        let data = { total_points: row.points || 0, history: [] };
+        if (studentId && row._serverPointsId !== null) {
+            const res = await fetch(`/api/points/${studentId}`);
+            if (res.ok) data = await res.json();
+        }
+        document.getElementById('points-detail-total').textContent = data.total_points || 0;
+        const hist = data.history || [];
+        document.getElementById('points-detail-history').innerHTML = hist.length === 0
+            ? '<p style="color:var(--on-surface-variant);text-align:center;">No history yet</p>'
+            : hist.map(h => `
+                <div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface-container-high);border-radius:8px;">
+                    <span style="font-weight:700;color:${h.points_change>=0?'var(--success)':'var(--error)'};">${h.points_change>0?'+':''}${h.points_change}</span>
+                    <span style="flex:1;font-size:0.8rem;">${h.reason||''}</span>
+                    <span style="font-size:0.75rem;color:var(--on-surface-variant);">${h.date}</span>
+                </div>`).join('');
+        document.getElementById('points-detail-modal').classList.add('active');
+    }
+
+    async addManualPoints() {
+        const pts = parseInt(document.getElementById('points-manual-amount').value);
+        const reason = document.getElementById('points-manual-reason').value.trim() || 'Manual adjustment';
+        if (isNaN(pts) || pts === 0) { this.showToast('Enter a valid number', 'error'); return; }
+        const sid = this._currentPointsStudentId;
+        if (!sid) return;
+        const res = await fetch('/api/points/add', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({student_id: sid, points: pts, reason})
+        });
+        if ((await res.json()).success) {
+            this.showToast(`${pts>0?'+':''}${pts} points saved!`, 'success');
+            document.getElementById('points-manual-amount').value = '';
+            document.getElementById('points-manual-reason').value = '';
+            await this.showStudentPoints(sid, document.getElementById('points-detail-name').textContent);
+            await this.loadPoints();
+        }
+    }
+
+    async clearPoints() {
+        if (!this.canManageStudentData()) {
+            this.showToast('Access denied. Admin or Sub-admin only.', 'error');
+            return;
+        }
+        const servant = document.getElementById('points-servant-filter').value;
+        const target = (servant && servant !== 'all') ? `class "${servant}"` : 'ALL students';
+        if (!confirm(`This will reset current points for ${target}. History is preserved. Continue?`)) return;
+        const res = await fetch('/api/points/clear', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({servant: servant !== 'all' ? servant : null})
+        });
+        const data = await res.json();
+        if (data.success) {
+            this.showToast(`Points cleared for ${data.cleared_count} students`, 'success');
+            await this.loadPoints();
+        }
+    }
+
+    // ---- EFTIKAD ----
+    async showEftikad() {
+        this.showView('eftikad');
+        this.setNavActive('nav-eftikad');
+        const today = new Date().toISOString().split('T')[0];
+        const sevenAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
+        document.getElementById('eftikad-date-from').value = sevenAgo;
+        document.getElementById('eftikad-date-to').value = today;
+        await this.loadEftikad();
+    }
+
+    async loadEftikad() {
+        const container = document.getElementById('eftikad-list');
+        const alerts = await this.calculateAbsenceAlerts();
+        const alertByStudentId = {};
+        alerts.forEach(alert => {
+            alertByStudentId[alert.student.id] = alert;
+        });
+
+        const assignedStudents = await this.filterStudentsForCurrentRole(await this.getAllStudents());
+        const needEftikad = assignedStudents.map(student => {
+            const alert = alertByStudentId[student.id];
+            return {
+                ...student,
+                consecutive_absences: alert?.consecutiveAbsences || 0,
+                eftikad_level: alert?.level || 'normal',
+                last_seen: alert?.lastSeen || ''
+            };
+        }).sort((a, b) => {
+            const rank = { red: 0, orange: 1, normal: 2 };
+            const ar = rank[a.eftikad_level] ?? 2;
+            const br = rank[b.eftikad_level] ?? 2;
+            if (ar !== br) return ar - br;
+            if ((b.consecutive_absences || 0) !== (a.consecutive_absences || 0)) {
+                return (b.consecutive_absences || 0) - (a.consecutive_absences || 0);
+            }
+            return String(a.name || '').localeCompare(String(b.name || ''));
+        });
+        this._eftikadStudentMap = {};
+        needEftikad.forEach(student => {
+            this._eftikadStudentMap[student.id] = student;
+        });
+
+        if (needEftikad.length === 0) {
+            container.innerHTML = `<div class="empty-state"><span class="material-icons-round">groups</span><p>No assigned students yet.</p></div>`;
+            return;
+        }
+        container.innerHTML = needEftikad.map(s => {
+            const isRed = s.eftikad_level === 'red';
+            const isYellow = s.eftikad_level === 'orange';
+            const accent = isRed ? 'var(--error)' : (isYellow ? 'var(--warning)' : 'var(--primary)');
+            const bg = isRed ? 'var(--error-container)' : (isYellow ? 'rgba(255,202,40,0.18)' : 'rgba(91,142,240,0.14)');
+            const statusText = isRed ? `${s.consecutive_absences || 0} weeks absent · Urgent` :
+                (isYellow ? `${s.consecutive_absences || 0} weeks absent · Follow up` : 'Available for Eftikad');
+            const icon = isRed || isYellow ? 'person_off' : 'person';
+            const phone = s.parent_phone || s.parentPhone || s.phone || '';
+            const waHref = this.whatsappUrl(phone, 'Hello, we are checking on you. God bless you.');
+            return `
+            <div onclick="app.openEftikadAction(${s.id})"
+                style="display:flex;align-items:center;gap:12px;background:var(--surface-container-high);border-left:4px solid ${accent};border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;">
+                <div style="width:40px;height:40px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;">
+                    <span class="material-icons-round" style="color:${accent};font-size:20px;">${icon}</span>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-weight:600;">${s.name}</div>
+                    <div style="font-size:0.75rem;color:${accent};font-weight:800;">${statusText}</div>
+                    <div style="font-size:0.72rem;color:var(--on-surface-variant);">${s.grade ? 'Grade '+s.grade : ''}${s.gender ? ' · '+s.gender : ''}${s.last_seen ? ' · Last seen '+s.last_seen : ''}</div>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <a href="${waHref || '#'}" target="_blank" onclick="event.stopPropagation();${waHref ? '' : "app.showToast('No phone number for this student','error');return false;"}"
+                        style="padding:8px;border-radius:8px;background:#25D366;display:flex;align-items:center;color:white;text-decoration:none;">
+                        <span class="material-icons-round" style="font-size:18px;">chat</span>
+                    </a>
+                    <a href="tel:${phone}" onclick="event.stopPropagation()"
+                        style="padding:8px;border-radius:8px;background:var(--primary);display:flex;align-items:center;color:white;text-decoration:none;">
+                        <span class="material-icons-round" style="font-size:18px;">call</span>
+                    </a>
+                </div>
+            </div>
+        `;
+        }).join('');
+    }
+
+    openEftikadAction(studentId) {
+        const student = this._eftikadStudentMap?.[studentId] || {};
+        const name = student.name || 'Student';
+        const phone = student.phone || '';
+        const parentPhone = student.parent_phone || student.parentPhone || '';
+        this._eftikadStudentId = studentId;
+        this._eftikadStudent = student;
+        this._eftikadPhone = parentPhone || phone || '';
+        document.getElementById('eftikad-student-name').textContent = name;
+        const wa_msg = encodeURIComponent('Hello, we missed you at Sunday School. We hope everything is okay. God bless you.');
+        const numClean = this._eftikadPhone.replace(/\D/g, '');
+        document.getElementById('eftikad-whatsapp-btn').href = `https://wa.me/${numClean}?text=${wa_msg}`;
+        document.getElementById('eftikad-call-btn').href = `tel:${this._eftikadPhone}`;
+        document.getElementById('eftikad-notes').value = '';
+        document.getElementById('eftikad-action-modal').classList.add('active');
+    }
+
+    async saveEftikad() {
+        const notes = document.getElementById('eftikad-notes').value.trim();
+        const sid = this._eftikadStudentId;
+        if (!sid) return;
+        const res = await fetch('/api/eftikad', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                servant_username: this.username,
+                student_id: sid,
+                student_name: this._eftikadStudent?.name || '',
+                grade: this._eftikadStudent?.grade || '',
+                gender: this._eftikadStudent?.gender || '',
+                servant: this._eftikadStudent?.servant || this.username || '',
+                phone: this._eftikadStudent?.phone || '',
+                parent_phone: this._eftikadStudent?.parent_phone || this._eftikadStudent?.parentPhone || '',
+                date: new Date().toISOString().split('T')[0],
+                whatsapp_sent: 1,
+                notes
+            })
+        });
+        if ((await res.json()).success) {
+            this.showToast('Eftikad record saved!', 'success');
+            document.getElementById('eftikad-action-modal').classList.remove('active');
+            await this.loadEftikad();
+        }
+    }
+
+    // ---- BIBLE TRACKING ----
+    showBible() { this.showView('bible'); this._populateServantFilters(['bible-servant-filter']); this.loadBibleTracking(); }
+
+    async loadBibleTracking() {
+        const servant = document.getElementById('bible-servant-filter').value;
+        const url = servant && servant !== 'all' ? `/api/bible/all?servant=${encodeURIComponent(servant)}` : '/api/bible/all';
+        const res = await fetch(url);
+        const data = await res.json();
+        const students = data.students || [];
+        const container = document.getElementById('bible-list');
+        if (students.length === 0) {
+            container.innerHTML = `<div class="empty-state"><span class="material-icons-round">menu_book</span><p>No students found</p></div>`;
+            return;
+        }
+        // Get current week start
+        const now = new Date();
+        const day = now.getDay();
+        const weekStart = new Date(now - day * 86400000).toISOString().split('T')[0];
+
+        container.innerHTML = students.map(s => {
+            const days = s.days_read || 0;
+            const isThisWeek = s.week_start_date === weekStart;
+            const displayDays = isThisWeek ? days : 0;
+            const dots = Array.from({length:7}, (_, i) => `<div style="width:18px;height:18px;border-radius:50%;background:${i<displayDays?'var(--primary)':'var(--outline)'};"></div>`).join('');
+            return `
+                <div style="background:var(--surface-container-high);border-radius:14px;padding:12px 14px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <div>
+                            <div style="font-weight:600;">${s.name}</div>
+                            <div style="font-size:0.75rem;color:var(--on-surface-variant);">${s.servant||''}</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span style="font-size:0.8rem;color:var(--on-surface-variant);">${displayDays}/7 days</span>
+                            ${displayDays >= 7 ? '<span style="color:#FFD700;font-size:1.2rem;">🏆</span>' : ''}
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:4px;margin-bottom:8px;">${dots}</div>
+                    <div style="display:flex;gap:6px;">
+                        ${[1,2,3,4,5,6,7].map(d => `<button onclick="app.setBibleDays(${s.id},'${weekStart}',${d})"
+                            style="flex:1;padding:5px 0;border-radius:6px;border:none;font-size:0.7rem;font-weight:600;cursor:pointer;background:${displayDays>=d?'var(--primary)':'var(--surface-variant)'};color:${displayDays>=d?'white':'var(--on-surface-variant)'};">${d}</button>`).join('')}
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    async setBibleDays(studentId, weekStart, days) {
+        await fetch('/api/bible', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({student_id: studentId, week_start_date: weekStart, days_read: days})
+        });
+        this.showToast(`${days}/7 days saved`, 'success');
+        await this.loadBibleTracking();
+    }
+
+    // ---- ANNOUNCEMENTS ----
+    showAnnouncements() {
+        this.showView('announcements');
+        const waForm = document.getElementById('student-whatsapp-form');
+        if (waForm) waForm.style.display = this.canManageStudentData() ? '' : 'none';
+        document.getElementById('new-announcement-form').style.display = this.canManageStudentData() ? '' : 'none';
+        this.loadAnnouncements();
+    }
+
+    async sendStudentWhatsAppAnnouncement() {
+        if (!this.canManageStudentData()) {
+            this.showToast('Admin or sub-admin only', 'error');
+            return;
+        }
+        const message = document.getElementById('wa-student-message').value.trim();
+        const scope = document.getElementById('wa-student-scope').value;
+        if (!message) {
+            this.showToast('Type a WhatsApp message first', 'error');
+            return;
+        }
+
+        const res = await fetch('/api/students');
+        const data = await res.json();
+        let students = data.students || [];
+        if (scope === 'boy') students = students.filter(s => this.normalizeGender(s.gender) === 'Boy');
+        if (scope === 'girl') students = students.filter(s => this.normalizeGender(s.gender) === 'Girl');
+
+        const recipients = students.filter(s => this.studentWhatsAppPhone(s));
+        if (recipients.length === 0) {
+            this.showToast('No selected students have phone numbers', 'error');
+            return;
+        }
+
+        recipients.forEach((student, index) => {
+            setTimeout(() => this.openWhatsAppForStudent(student, message), index * 350);
+        });
+        this.showToast(`Opening WhatsApp for ${recipients.length} students`, 'success');
+    }
+
+    async loadAnnouncements() {
+        const res = await fetch('/api/announcements');
+        const data = await res.json();
+        const anns = data.announcements || [];
+        const container = document.getElementById('announcements-list');
+        const canManageAnnouncements = this.canManageStudentData();
+        if (anns.length === 0) {
+            container.innerHTML = `<div class="empty-state"><span class="material-icons-round">campaign</span><p>No announcements yet</p></div>`;
+            return;
+        }
+        container.innerHTML = anns.map(a => `
+            <div style="background:var(--surface-container-high);border-radius:14px;padding:14px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+                    <div style="font-weight:700;font-size:1rem;">${a.title}</div>
+                    ${canManageAnnouncements ? `<button onclick="app.deleteAnnouncement(${a.id})" style="background:none;border:none;color:var(--error);cursor:pointer;"><span class="material-icons-round" style="font-size:18px;">delete</span></button>` : ''}
+                </div>
+                <div style="font-size:0.85rem;color:var(--on-surface);margin-bottom:8px;">${a.body}</div>
+                ${a.attachment_path ? `<a href="${a.attachment_path}" target="_blank" style="font-size:0.8rem;color:var(--primary);display:flex;align-items:center;gap:4px;text-decoration:none;"><span class="material-icons-round" style="font-size:16px;">attach_file</span>Attachment</a>` : ''}
+                <div style="font-size:0.72rem;color:var(--on-surface-variant);margin-top:6px;">${a.created_by||'System'} · ${a.created_at?.split('T')[0]||a.created_at||''}</div>
+            </div>
+        `).join('');
+    }
+
+    async postAnnouncement() {
+        const title = document.getElementById('ann-title').value.trim();
+        const body = document.getElementById('ann-body').value.trim();
+        const fileInput = document.getElementById('ann-attachment');
+        if (!title || !body) { this.showToast('Title and message required', 'error'); return; }
+        const fd = new FormData();
+        fd.append('title', title);
+        fd.append('body', body);
+        fd.append('created_by', this.username || 'Admin');
+        if (fileInput.files[0]) fd.append('attachment', fileInput.files[0]);
+        const res = await fetch('/api/announcements', {method:'POST', body:fd});
+        if ((await res.json()).success) {
+            this.showToast('Announcement posted!', 'success');
+            document.getElementById('ann-title').value = '';
+            document.getElementById('ann-body').value = '';
+            fileInput.value = '';
+            await this.loadAnnouncements();
+        }
+    }
+
+    async deleteAnnouncement(id) {
+        if (!confirm('Delete this announcement?')) return;
+        await fetch(`/api/announcements/${id}`, {method:'DELETE'});
+        this.showToast('Deleted', 'info');
+        await this.loadAnnouncements();
+    }
+
+    // ---- BIRTHDAYS ----
+    showBirthdays() { this.showView('birthdays'); this.loadBirthdays(); }
+
+    sendBirthdayWhatsApp(studentId) {
+        const student = this._birthdayStudents?.[studentId];
+        if (!student) return;
+        const message = `Happy birthday ${student.name}! God bless you and give you a blessed year.`;
+        this.openWhatsAppForStudent(student, message);
+    }
+
+    async loadBirthdays() {
+        const days = document.getElementById('birthday-days-filter').value || 30;
+        const res = await fetch(`/api/birthdays?days=${days}`);
+        const data = await res.json();
+        let birthdays = data.birthdays || [];
+        if (!this.canSeeAllClasses() && this.username) {
+            birthdays = await this.filterStudentsForCurrentRole(birthdays);
+        }
+        this._birthdayStudents = {};
+        birthdays.forEach(b => { this._birthdayStudents[b.id] = b; });
+        const container = document.getElementById('birthdays-list');
+        if (birthdays.length === 0) {
+            container.innerHTML = `<div class="empty-state"><span class="material-icons-round">cake</span><p>No upcoming birthdays</p></div>`;
+            return;
+        }
+        container.innerHTML = birthdays.map(b => {
+            const isToday = b.days_until === 0;
+            return `
+            <div style="display:flex;align-items:center;gap:12px;background:${isToday?'linear-gradient(135deg,rgba(91,142,240,0.2),rgba(58,107,212,0.15))':'var(--surface-container-high)'};border-radius:14px;padding:12px 14px;margin-bottom:8px;${isToday?'border:1px solid var(--primary);':''}">
+                <div style="font-size:2rem;">${isToday?'🎂':'🎁'}</div>
+                <div style="flex:1;">
+                    <div style="font-weight:600;">${b.name}</div>
+                    <div style="font-size:0.75rem;color:var(--on-surface-variant);">${b.birthday_date} · ${b.servant||''}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-weight:800;color:var(--primary);font-size:1.1rem;">${isToday?'TODAY':'In '+b.days_until+' days'}</div>
+                </div>
+                <button onclick="event.stopPropagation();app.sendBirthdayWhatsApp(${b.id})"
+                    title="Send birthday WhatsApp"
+                    style="width:38px;height:38px;border-radius:12px;border:none;background:#25D366;color:white;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                    <span class="material-icons-round" style="font-size:20px;">chat</span>
+                </button>
+            </div>`;
+        }).join('');
+    }
+
+    // ---- CHARTS ----
+    showCharts() {
+        this.showView('charts');
+        this._populateServantFilters(['chart-servant-filter']);
+        const curYear = new Date().getFullYear();
+        const sel = document.getElementById('chart-year-filter');
+        if (sel.options.length <= 1) {
+            for (let y = curYear; y >= curYear-4; y--) {
+                const o = document.createElement('option'); o.value = y; o.textContent = y; sel.appendChild(o);
+            }
+        }
+        this.loadCharts();
+    }
+
+    async loadCharts() {
+        const servant = document.getElementById('chart-servant-filter').value;
+        const year = document.getElementById('chart-year-filter').value;
+        let url = '/api/charts/attendance?';
+        if (servant && servant !== 'all') url += `servant=${encodeURIComponent(servant)}&`;
+        if (year) url += `year=${year}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const stats = data.stats || [];
+
+        const container = document.getElementById('chart-stats-list');
+        if (stats.length === 0) { container.innerHTML = `<div class="empty-state"><span class="material-icons-round">bar_chart</span><p>No data yet</p></div>`; return; }
+
+        // Build chart by grade
+        const months = [...new Set(stats.map(s => s.month))].sort();
+        const grades = [...new Set(stats.map(s => this.chartGradeKey(s)))]
+            .sort((a, b) => this.gradeSortValue(a) - this.gradeSortValue(b));
+        const colors = ['#5b8ef0','#f0a05b','#4caf50','#e91e63','#9c27b0','#ff5722'];
+        const datasets = grades.map((grade, i) => ({
+            label: this.chartGradeLabel(grade),
+            data: months.map(m => {
+                const row = stats.find(s => this.chartGradeKey(s) === grade && s.month === m);
+                return row ? Math.round((row.present_count / row.total) * 100) : null;
+            }),
+            borderColor: colors[i % colors.length],
+            backgroundColor: colors[i % colors.length] + '33',
+            tension: 0.4, fill: true, spanGaps: true
+        }));
+
+        if (this._chart) this._chart.destroy();
+        const ctx = document.getElementById('attendance-chart').getContext('2d');
+        this._chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: months, datasets },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#e0e0e0' } } },
+                scales: {
+                    y: { min: 0, max: 100, ticks: { color: '#e0e0e0', callback: v => v+'%' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                    x: { ticks: { color: '#e0e0e0' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                }
+            }
+        });
+
+        container.innerHTML = stats.slice(0, 30).map(s => {
+            const pct = s.total ? Math.round((s.present_count/s.total)*100) : 0;
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--outline);">
+                <div style="flex:1;font-size:0.85rem;">${this.chartGradeLabel(this.chartGradeKey(s))} · ${s.month}</div>
+                <div style="width:80px;background:var(--outline);border-radius:4px;height:6px;overflow:hidden;">
+                    <div style="width:${pct}%;background:var(--primary);height:100%;border-radius:4px;"></div>
+                </div>
+                <div style="font-weight:700;color:var(--primary);font-size:0.9rem;width:38px;text-align:right;">${pct}%</div>
+            </div>`;
+        }).join('');
+    }
+
+    chartGradeKey(row) {
+        return String(row.grade ?? row.class_name ?? row.servant ?? 'Unknown').replace('.0', '').trim() || 'Unknown';
+    }
+
+    chartGradeLabel(grade) {
+        const key = String(grade || '').replace('.0', '').trim();
+        if (!key || key === 'Unknown') return 'Unknown Grade';
+        return this.gradeLabel(key);
+    }
+
+    gradeSortValue(grade) {
+        const key = String(grade || '').replace('.0', '').trim().toLowerCase();
+        if (key === 'kg' || key === 'k' || key === '0') return 0;
+        const n = parseInt(key, 10);
+        return Number.isFinite(n) ? n : 99;
+    }
+
+    // ---- HELPER: populate servant filters ----
+    async _populateServantFilters(ids) {
+        const res = await fetch('/api/servants');
+        const data = await res.json();
+        const servants = data.servants || [];
+        const classNames = ['High School', 'Middle School', '4th Grade', '5th Grade', 'KG'];
+        const options = [...new Set([...classNames, ...servants])];
+        ids.forEach(id => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            const cur = sel.value;
+            sel.innerHTML = '<option value="all">All Classes</option>' + options.map(s => `<option value="${s}">${s}</option>`).join('');
+            sel.value = cur || 'all';
+            // If servant (not admin), lock to their name
+            if (!this.canSeeAllClasses() && this.username) {
+                if (this.assignedGrades && this.assignedGrades.length > 0) {
+                    sel.innerHTML = `<option value="all">My Grades (${this.assignedGrades.join(', ')})</option>`;
+                    sel.value = 'all';
+                } else {
+                    sel.value = this.userClassName && this.userClassName !== 'all' ? this.userClassName : this.username;
+                }
+                sel.disabled = true;
+            } else {
+                sel.disabled = false;
+            }
+        });
     }
 }
 

@@ -267,6 +267,10 @@
             min-height: 100vh;
         }
 
+        .mobile-backdrop {
+            display: none;
+        }
+
         /* Sidebar */
         .sidebar {
             position: fixed;
@@ -608,6 +612,12 @@
             border: 1px solid rgba(245, 200, 66, 0.2);
         }
 
+        .role-badge.sub_admin {
+            background: rgba(52, 211, 153, 0.12);
+            color: var(--success);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+        }
+
         .role-badge.user {
             background: rgba(91, 142, 240, 0.12);
             color: var(--primary);
@@ -799,6 +809,996 @@
         .mobile-header {
             display: none;
         }
+
+        .admin-bottom-nav {
+            display: none;
+        }
+
+        /* Phone-app Admin Portal: match the main attendance app instead of a desktop dashboard. */
+        body {
+            background: #0b0910;
+        }
+
+        #main-app {
+            width: 100%;
+            max-width: none;
+            min-height: 100vh;
+            margin: 0;
+            background: #0b0910;
+            position: relative;
+            overflow-x: hidden;
+            box-shadow: none;
+        }
+
+        #main-app .mobile-header,
+        #main-app .content,
+        .admin-bottom-nav {
+            width: min(100%, 500px);
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .sidebar,
+        .sidebar-header,
+        .sidebar-nav,
+        .sidebar-footer,
+        .nav-label,
+        body>.nav-link,
+        .mobile-backdrop,
+        #mobile-menu-btn {
+            display: none !important;
+        }
+
+        .mobile-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 98px;
+            padding: 16px 24px 18px;
+            background: linear-gradient(135deg, #1C1930 0%, #25213B 100%);
+            border-bottom: 1px solid rgba(124, 92, 191, 0.25);
+            position: sticky;
+            top: 0;
+            z-index: 90;
+            box-shadow: 0 2px 16px rgba(124, 92, 191, 0.15);
+        }
+
+        .mobile-header::before {
+            content: '';
+            width: 48px;
+            height: 48px;
+            flex: 0 0 48px;
+            border-radius: 14px;
+            background: url('app-icon.png') center / cover no-repeat;
+            box-shadow: 0 0 18px rgba(124, 92, 191, 0.3);
+        }
+
+        .mobile-header h2 {
+            flex: 1;
+            color: #ffffff;
+            font-size: 1.85rem;
+            line-height: 1;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+
+        .mobile-header h2::after {
+            content: 'Admin tools';
+            display: block;
+            margin-top: 10px;
+            color: #C8B7EA;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .content {
+            margin-left: 0;
+            width: min(100%, 500px);
+            margin-right: auto;
+            margin-left: auto;
+            min-height: calc(100vh - 98px);
+            padding: 24px 24px 106px;
+            background: #13111A;
+        }
+
+        .page-title {
+            font-size: 1.42rem;
+            line-height: 1.15;
+            color: #F8F5FF;
+            text-transform: uppercase;
+            letter-spacing: 0;
+            margin: 8px 0 6px;
+        }
+
+        .page-subtitle {
+            color: #B8B0CC;
+            font-size: 0.92rem;
+            margin-bottom: 22px;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 26px;
+        }
+
+        .stat-card {
+            min-height: 104px;
+            padding: 16px 14px;
+            background: #25213B;
+            border: 1px solid rgba(124, 92, 191, 0.18);
+            border-radius: 16px;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
+        }
+
+        .stat-card:hover {
+            transform: none;
+        }
+
+        .stat-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            line-height: 1;
+            color: #ffffff;
+        }
+
+        .stat-label {
+            color: #B8B0CC;
+            font-size: 0.78rem;
+        }
+
+        .card {
+            background: transparent;
+            border: 0;
+            border-radius: 0;
+            padding: 0;
+            margin-bottom: 26px;
+        }
+
+        .card-header {
+            margin-bottom: 14px;
+            align-items: center;
+        }
+
+        .card-title {
+            color: #D8C8FF;
+            font-size: 1.08rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .card-title .material-icons-round {
+            color: #9B7DD4;
+        }
+
+        .card-header .btn {
+            width: auto;
+            min-width: 0;
+            border-radius: 14px;
+        }
+
+        #overview-data-dashboard>div:first-child,
+        #overview-data-dashboard>div:nth-child(2),
+        #overview-users-list,
+        #users-table-container,
+        #reports-table-container {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px !important;
+        }
+
+        #overview-data-dashboard>div:first-child,
+        #overview-data-dashboard>div:nth-child(2) {
+            grid-template-columns: 1fr 1fr !important;
+        }
+
+        #overview-data-dashboard [style*="background:var(--surface)"],
+        #overview-data-dashboard [style*="background: var(--surface)"],
+        #overview-data-dashboard [style*="background:var(--surface-2)"],
+        #overview-users-list>table,
+        #users-table-container>table,
+        #reports-table-container>table {
+            grid-column: 1 / -1;
+        }
+
+        #overview-data-dashboard>div>div,
+        #overview-users-list>div,
+        #users-table-container>div,
+        #reports-table-container>div {
+            background: #25213B !important;
+            border: 1px solid rgba(124, 92, 191, 0.18) !important;
+            border-radius: 18px !important;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
+
+        .admin-input {
+            min-height: 48px;
+            background: #25213B;
+            border-color: rgba(124, 92, 191, 0.24);
+            color: #EBE6F4;
+            font-size: 1rem;
+        }
+
+        .btn {
+            min-height: 46px;
+            border-radius: 14px;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #8E6BE8, #6E49CC);
+            box-shadow: 0 8px 22px rgba(124, 92, 191, 0.32);
+        }
+
+        .btn-success,
+        .btn-warning,
+        .btn-danger {
+            background: #25213B;
+            border-color: rgba(124, 92, 191, 0.24);
+        }
+
+        .user-table {
+            display: block;
+        }
+
+        .user-table thead {
+            display: none;
+        }
+
+        .user-table tbody {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .user-table tr {
+            display: block;
+            background: #25213B;
+            border: 1px solid rgba(124, 92, 191, 0.18);
+            border-radius: 18px;
+            padding: 14px;
+        }
+
+        .user-table td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 9px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .user-table td:last-child {
+            border-bottom: 0;
+        }
+
+        .user-table td::before {
+            content: attr(data-label);
+            color: #8F86AA;
+            font-size: 0.68rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .actions-cell {
+            width: min(100%, 500px);
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .actions-cell .btn {
+            flex: 1;
+            min-width: 106px;
+        }
+
+        .reports-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .report-card {
+            position: relative;
+            background: #25213B;
+            border: 1px solid rgba(124, 92, 191, 0.2);
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.2);
+        }
+
+        .report-card.unread {
+            border-color: rgba(248, 113, 113, 0.45);
+        }
+
+        .report-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding-right: 44px;
+            margin-bottom: 14px;
+        }
+
+        .report-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: rgba(124, 92, 191, 0.18);
+            color: #CDBBFF;
+        }
+
+        .report-icon.attendance {
+            background: rgba(91, 142, 240, 0.18);
+            color: #7CA4FF;
+        }
+
+        .report-icon.eftikad {
+            background: rgba(245, 200, 66, 0.16);
+            color: #F5C842;
+        }
+
+        .report-title {
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 4px;
+        }
+
+        .report-meta {
+            color: #B8B0CC;
+            font-size: 0.78rem;
+            line-height: 1.4;
+        }
+
+        .report-delete {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 38px;
+            height: 38px;
+            border-radius: 13px;
+            border: 1px solid rgba(248, 113, 113, 0.25);
+            background: rgba(248, 113, 113, 0.12);
+            color: #ff7b7b;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .report-dot {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f87171;
+        }
+
+        .report-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .report-stat {
+            min-height: 64px;
+            border-radius: 14px;
+            background: rgba(19, 17, 26, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 10px;
+        }
+
+        .report-stat-value {
+            color: #ffffff;
+            font-size: 1.25rem;
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+
+        .report-stat-value.present {
+            color: #34d399;
+        }
+
+        .report-stat-value.absent {
+            color: #f87171;
+        }
+
+        .report-stat-label {
+            color: #9F94BC;
+            font-size: 0.67rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .servant-report-group {
+            background: #25213B;
+            border: 1px solid rgba(124, 92, 191, 0.2);
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.2);
+        }
+
+        .servant-report-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .servant-report-person {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .servant-report-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 16px;
+            background: rgba(124, 92, 191, 0.2);
+            color: #D8C8FF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            flex-shrink: 0;
+        }
+
+        .servant-report-name {
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 900;
+            line-height: 1.15;
+        }
+
+        .servant-report-count {
+            color: #B8B0CC;
+            font-size: 0.76rem;
+            margin-top: 4px;
+        }
+
+        .servant-report-total {
+            min-width: 54px;
+            border-radius: 14px;
+            background: rgba(19, 17, 26, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 8px 10px;
+            text-align: center;
+        }
+
+        .servant-report-total strong {
+            display: block;
+            color: #ffffff;
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+
+        .servant-report-total span {
+            color: #9F94BC;
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .servant-submissions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .servant-submission {
+            position: relative;
+            background: rgba(19, 17, 26, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 14px;
+            padding: 12px;
+            padding-right: 48px;
+        }
+
+        .servant-submission.unread {
+            border-color: rgba(248, 113, 113, 0.4);
+        }
+
+        .submission-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #ffffff;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .submission-top .material-icons-round {
+            color: #9B7DD4;
+            font-size: 18px;
+        }
+
+        .submission-meta {
+            color: #B8B0CC;
+            font-size: 0.76rem;
+            margin-bottom: 10px;
+        }
+
+        .submission-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 7px;
+        }
+
+        .submission-stat {
+            border-radius: 11px;
+            background: rgba(37, 33, 59, 0.74);
+            padding: 8px;
+        }
+
+        .submission-stat strong {
+            display: block;
+            color: #ffffff;
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+        .submission-stat strong.present {
+            color: #34d399;
+        }
+
+        .submission-stat strong.absent {
+            color: #f87171;
+        }
+
+        .submission-stat span {
+            display: block;
+            margin-top: 5px;
+            color: #9F94BC;
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .admin-bottom-nav {
+            position: fixed;
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 500px;
+            min-height: 72px;
+            padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+            background: linear-gradient(180deg, rgba(28, 25, 48, 0.96), #1C1930);
+            border-top: 1px solid rgba(124, 92, 191, 0.25);
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 2px;
+            z-index: 120;
+            box-shadow: 0 -6px 22px rgba(0, 0, 0, 0.35);
+        }
+
+        .admin-tab {
+            min-width: 0;
+            min-height: 56px;
+            border: none;
+            background: transparent;
+            color: #B8B0CC;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.64rem;
+            font-weight: 700;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .admin-tab .material-icons-round {
+            font-size: 21px;
+        }
+
+        .admin-tab.active {
+            color: #E8D8FF;
+            background: rgba(124, 92, 191, 0.18);
+        }
+
+        .admin-tab.active::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            width: 24px;
+            height: 3px;
+            border-radius: 999px;
+            background: #9B7DD4;
+        }
+
+        @media (min-width: 501px) {
+            .content {
+                border-left: 1px solid rgba(124, 92, 191, 0.12);
+                border-right: 1px solid rgba(124, 92, 191, 0.12);
+            }
+        }
+
+        @media (max-width: 768px) {
+            :root {
+                --bg: #13111A;
+                --surface: #1C1930;
+                --surface-2: #25213B;
+                --surface-3: #2d2945;
+                --primary: #7C5CBF;
+                --primary-dark: #5D3F9F;
+                --primary-glow: rgba(124, 92, 191, 0.28);
+                --text: #EBE6F4;
+                --text-dim: #B8B0CC;
+                --text-muted: #6B6480;
+            }
+
+            html,
+            body {
+                min-height: 100%;
+                overflow-x: hidden;
+            }
+
+            body {
+                background: #0f1117;
+            }
+
+            #main-app {
+                width: 100%;
+                max-width: 500px;
+                min-height: 100vh;
+                margin: 0 auto;
+                background: var(--bg);
+                position: relative;
+                overflow-x: hidden;
+            }
+
+            #auth-gate {
+                align-items: flex-start;
+                padding: max(18px, env(safe-area-inset-top)) 14px 18px;
+                overflow-y: auto;
+            }
+
+            .auth-card {
+                width: 100%;
+                max-width: 420px;
+                padding: 28px 20px;
+                border-radius: 18px;
+                margin-top: 24px;
+            }
+
+            .auth-logo {
+                margin-bottom: 22px;
+            }
+
+            .auth-logo-text h1 {
+                font-size: 1.2rem;
+            }
+
+            .mobile-header {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                min-height: 64px;
+                padding: 10px 14px;
+                padding-top: calc(10px + env(safe-area-inset-top, 0px));
+                background: linear-gradient(135deg, #1C1930 0%, #25213B 100%);
+                border-bottom: 1px solid rgba(124, 92, 191, 0.25);
+                position: sticky;
+                top: 0;
+                z-index: 90;
+                box-shadow: 0 2px 16px rgba(91, 142, 240, 0.12);
+            }
+
+            .mobile-header h2 {
+                font-size: 1rem;
+                line-height: 1.1;
+                flex: 1;
+            }
+
+            #mobile-menu-btn {
+                display: none;
+            }
+
+            .mobile-backdrop {
+                position: fixed;
+                inset: 0;
+                display: block;
+                background: rgba(0, 0, 0, 0.58);
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.2s;
+                z-index: 95;
+            }
+
+            .mobile-backdrop.active {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .sidebar {
+                display: none;
+            }
+
+            .sidebar.open {
+                transform: none;
+            }
+
+            .sidebar-header {
+                padding: calc(18px + env(safe-area-inset-top, 0px)) 18px 18px;
+            }
+
+            .sidebar-nav {
+                padding: 12px 10px;
+            }
+
+            .nav-link {
+                min-height: 46px;
+                padding: 12px 14px;
+                font-size: 0.95rem;
+            }
+
+            .sidebar-footer {
+                padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+            }
+
+            .content {
+                margin-left: 0;
+                min-height: calc(100vh - 64px);
+                padding: 18px 14px calc(96px + env(safe-area-inset-bottom, 0px));
+            }
+
+            .admin-bottom-nav {
+                position: fixed;
+                left: 50%;
+                bottom: 0;
+                transform: translateX(-50%);
+                width: 100%;
+                max-width: 500px;
+                min-height: 72px;
+                padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+                background: linear-gradient(180deg, rgba(28, 25, 48, 0.96), #1C1930);
+                border-top: 1px solid rgba(124, 92, 191, 0.25);
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 2px;
+                z-index: 120;
+                box-shadow: 0 -6px 22px rgba(0, 0, 0, 0.35);
+            }
+
+            .admin-tab {
+                min-width: 0;
+                min-height: 56px;
+                border: none;
+                background: transparent;
+                color: var(--text-dim);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                border-radius: 12px;
+                font-family: 'Inter', sans-serif;
+                font-size: 0.64rem;
+                font-weight: 700;
+                cursor: pointer;
+                position: relative;
+            }
+
+            .admin-tab .material-icons-round {
+                font-size: 21px;
+            }
+
+            .admin-tab.active {
+                color: #E8D8FF;
+                background: rgba(124, 92, 191, 0.18);
+            }
+
+            .admin-tab.active::before {
+                content: '';
+                position: absolute;
+                top: 5px;
+                width: 24px;
+                height: 3px;
+                border-radius: 999px;
+                background: var(--primary);
+            }
+
+            .page-title {
+                font-size: 1.35rem;
+                margin-bottom: 4px;
+            }
+
+            .page-subtitle {
+                font-size: 0.82rem;
+                margin-bottom: 18px;
+            }
+
+            .stats-row {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-bottom: 18px;
+            }
+
+            .stat-card {
+                padding: 14px;
+                border-radius: 12px;
+            }
+
+            .stat-icon {
+                width: 34px;
+                height: 34px;
+                margin-bottom: 10px;
+            }
+
+            .stat-value {
+                font-size: 1.45rem;
+            }
+
+            .stat-label {
+                font-size: 0.72rem;
+            }
+
+            .card {
+                padding: 16px;
+                margin-bottom: 14px;
+                border-radius: 12px;
+            }
+
+            .card-header {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 10px;
+                margin-bottom: 14px;
+            }
+
+            .card-title {
+                font-size: 0.98rem;
+            }
+
+            .card-header .btn,
+            .card-header>div {
+                width: 100%;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .admin-input-group {
+                margin-bottom: 12px;
+            }
+
+            .admin-input {
+                min-height: 44px;
+                font-size: 0.95rem;
+            }
+
+            .btn {
+                min-height: 42px;
+                justify-content: center;
+                white-space: normal;
+            }
+
+            .btn-sm {
+                min-height: 36px;
+                padding: 7px 10px;
+            }
+
+            .user-table {
+                display: block;
+            }
+
+            .user-table thead {
+                display: none;
+            }
+
+            .user-table tbody {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .user-table tr {
+                display: block;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 12px;
+            }
+
+            .user-table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+                padding: 8px 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+                font-size: 0.84rem;
+            }
+
+            .user-table td:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+
+            .user-table td::before {
+                content: attr(data-label);
+                color: var(--text-muted);
+                font-size: 0.68rem;
+                font-weight: 800;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                flex-shrink: 0;
+            }
+
+            .user-table td:empty {
+                display: none;
+            }
+
+            .actions-cell {
+                width: 100%;
+                justify-content: flex-end;
+                flex-wrap: wrap;
+            }
+
+            .actions-cell .btn {
+                flex: 1;
+                min-width: 104px;
+            }
+
+            .modal-overlay {
+                align-items: flex-end;
+                padding: 14px;
+            }
+
+            .modal-box {
+                width: 100%;
+                max-width: 500px;
+                padding: 20px;
+                border-radius: 16px;
+            }
+
+            .modal-actions {
+                flex-direction: column-reverse;
+            }
+
+            .modal-actions .btn,
+            .modal-actions .btn-outline {
+                width: 100%;
+                justify-content: center;
+            }
+
+            #toast {
+                width: calc(100% - 28px);
+                max-width: 472px;
+                bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+                justify-content: center;
+                white-space: normal;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 
@@ -860,6 +1860,7 @@
         </div>
 
         <!-- Sidebar -->
+        <div class="mobile-backdrop" id="mobile-backdrop" onclick="toggleSidebar(false)"></div>
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
@@ -899,12 +1900,11 @@
                     font-size:0.65rem; font-weight:800; align-items:center; justify-content:center;">0</span>
                 </button>
                 <div class="nav-label" style="margin-top:8px;">Navigation</div>
-    </div>
-    <a href="/" class="nav-link">
-        <span class="material-icons-round">apps</span>
-        Main App
-    </a>
-    </nav>
+                <a href="/" class="nav-link">
+                    <span class="material-icons-round">apps</span>
+                    Main App
+                </a>
+            </nav>
 
     <div class="sidebar-footer">
         <div class="user-chip">
@@ -927,7 +1927,7 @@
         <!-- Overview Section -->
         <div id="section-overview" class="section active">
             <h1 class="page-title">Dashboard Overview</h1>
-            <p class="page-subtitle">Manage user accounts and system access for the attendance app.</p>
+            <p class="page-subtitle">See system data, user accounts, classes, reports, points, birthdays, and announcements.</p>
 
             <div class="stats-row">
                 <div class="stat-card">
@@ -943,7 +1943,25 @@
                 <div class="stat-card">
                     <div class="stat-icon green"><span class="material-icons-round">person</span></div>
                     <div class="stat-value" id="stat-users">—</div>
-                    <div class="stat-label">User Accounts</div>
+                    <div class="stat-label">Servant / Sub-admin Accounts</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="material-icons-round">dashboard</span>
+                        System Data
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="loadOverviewDashboard()">
+                        <span class="material-icons-round">refresh</span>
+                        Refresh
+                    </button>
+                </div>
+                <div id="overview-data-dashboard">
+                    <div style="text-align:center; padding:30px; color:var(--text-muted);">
+                        <span class="material-icons-round spin">sync</span>
+                    </div>
                 </div>
             </div>
 
@@ -966,7 +1984,18 @@
                             <li>Manage servants</li>
                             <li>Import & export Excel data</li>
                             <li>Send announcements</li>
-                            <li>Access Admin Portal</li>
+                            <li>Manage users and system/security settings</li>
+                        </ul>
+                    </div>
+                    <div
+                        style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:20px;">
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                            <span class="role-badge sub_admin">Sub-admin</span>
+                        </div>
+                        <ul style="font-size:0.85rem; color:var(--text-dim); padding-left:18px; line-height:1.8;">
+                            <li>See all classes and reports</li>
+                            <li>Manage attendance, points, birthdays, announcements, and student data</li>
+                            <li>Cannot manage accounts or system/security settings</li>
                         </ul>
                     </div>
                     <div
@@ -978,9 +2007,9 @@
                             <li>Take attendance</li>
                             <li>View student profiles</li>
                             <li>View absence alerts</li>
-                            <li>View attendance history</li>
-                            <li>Cannot modify students</li>
-                            <li>No admin tools access</li>
+                            <li>Submit Eftikad / Visitation reports</li>
+                            <li>View birthdays and announcements</li>
+                            <li>Cannot manage users or all classes</li>
                         </ul>
                     </div>
                 </div>
@@ -1030,7 +2059,7 @@
         <!-- Register Section -->
         <div id="section-register" class="section">
             <h1 class="page-title">Register Account</h1>
-            <p class="page-subtitle">Create a new admin or user account for the attendance system.</p>
+            <p class="page-subtitle">Create a new admin, sub-admin, or servant account for the attendance system.</p>
 
             <div class="card">
                 <div class="card-header">
@@ -1053,9 +2082,53 @@
                             <label>Account Role *</label>
                             <div class="input-wrapper">
                                 <span class="material-icons-round">admin_panel_settings</span>
-                                <select id="reg-role" class="admin-input" required>
+                                <select id="reg-role" class="admin-input" required onchange="handleRoleClassOptions()">
                                     <option value="user">User (Servant)</option>
+                                    <option value="sub_admin">Sub-admin (All Classes)</option>
                                     <option value="admin">Admin (Full Access)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin-input-group form-full" id="reg-grades-group">
+                            <label>Manual Grade Assignment *</label>
+                            <p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">
+                                For User (Servant), choose one or more grades. Example: 10, 11, 12.
+                            </p>
+                            <div id="reg-grades"
+                                style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;">
+                                <label><input type="checkbox" value="KG"> KG</label>
+                                <label><input type="checkbox" value="4"> 4</label>
+                                <label><input type="checkbox" value="5"> 5</label>
+                                <label><input type="checkbox" value="6"> 6</label>
+                                <label><input type="checkbox" value="7"> 7</label>
+                                <label><input type="checkbox" value="8"> 8</label>
+                                <label><input type="checkbox" value="9"> 9</label>
+                                <label><input type="checkbox" value="10"> 10</label>
+                                <label><input type="checkbox" value="11"> 11</label>
+                                <label><input type="checkbox" value="12"> 12</label>
+                            </div>
+                        </div>
+                        <div class="admin-input-group form-full" id="reg-sections-group">
+                            <label>Manual Section Assignment</label>
+                            <p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">
+                                Optional for User (Servant). Choose Boys, Girls, or both.
+                            </p>
+                            <div id="reg-sections"
+                                style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;">
+                                <label><input type="checkbox" value="Boy" checked> Boys</label>
+                                <label><input type="checkbox" value="Girl" checked> Girls</label>
+                            </div>
+                        </div>
+                        <div class="admin-input-group">
+                            <label id="reg-class-label">Sub-admin Class *</label>
+                            <div class="input-wrapper">
+                                <span class="material-icons-round">school</span>
+                                <select id="reg-class" class="admin-input" required>
+                                    <option value="Middle School">Middle School</option>
+                                    <option value="High School">High School</option>
+                                    <option value="4th Grade">4th Grade</option>
+                                    <option value="5th Grade">5th Grade</option>
+                                    <option value="KG">KG</option>
                                 </select>
                             </div>
                         </div>
@@ -1108,7 +2181,14 @@
                     style="display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px;">
                     <span class="material-icons-round"
                         style="color:var(--text-muted); font-size:18px;">calendar_today</span>
-                    <input type="date" id="report-date-filter" class="admin-input"
+                    <input type="date" id="report-date-from-filter" class="admin-input"
+                        style="border:none; background:none; padding:0; width:140px;" onchange="loadReports()">
+                </div>
+                <div
+                    style="display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px;">
+                    <span class="material-icons-round"
+                        style="color:var(--text-muted); font-size:18px;">event</span>
+                    <input type="date" id="report-date-to-filter" class="admin-input"
                         style="border:none; background:none; padding:0; width:140px;" onchange="loadReports()">
                 </div>
                 <div
@@ -1227,6 +2307,29 @@
         </div>
     </div>
 
+    <nav class="admin-bottom-nav" aria-label="Admin navigation">
+        <button class="admin-tab active" id="tab-overview" onclick="showSection('overview')">
+            <span class="material-icons-round">dashboard</span>
+            <span>Home</span>
+        </button>
+        <button class="admin-tab" id="tab-users" onclick="showSection('users')">
+            <span class="material-icons-round">group</span>
+            <span>Users</span>
+        </button>
+        <button class="admin-tab" id="tab-register" onclick="showSection('register')">
+            <span class="material-icons-round">person_add</span>
+            <span>Add</span>
+        </button>
+        <button class="admin-tab" id="tab-reports" onclick="showSection('reports')">
+            <span class="material-icons-round">assignment</span>
+            <span>Reports</span>
+        </button>
+        <button class="admin-tab" onclick="window.location.href='/'">
+            <span class="material-icons-round">apps</span>
+            <span>App</span>
+        </button>
+    </nav>
+
     <div id="toast"></div>
 
     <script>
@@ -1234,6 +2337,9 @@
         let pendingDeleteId = null;
         let pendingPwId = null;
         let allUsers = [];
+        const classOptions = ['all', 'Middle School', 'High School', '4th Grade', '5th Grade', 'KG'];
+        const servantClassOptions = classOptions.filter(cls => cls !== 'all');
+        const gradeOptions = ['KG', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 
         // ===== AUTH =====
         async function authenticate(e) {
@@ -1258,7 +2364,7 @@
                     sessionStorage.setItem('adminUser', JSON.stringify(currentAdminUser));
                     showApp();
                 } else if (data.success && data.role !== 'admin') {
-                    showToast('Access denied. Admin accounts only.', 'error');
+                    showToast('Access denied. Full admin accounts only.', 'error');
                 } else {
                     showToast(data.error || 'Invalid credentials', 'error');
                 }
@@ -1270,7 +2376,12 @@
             }
         }
 
-        function signOut() {
+        async function signOut() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+            } catch (error) {
+                console.warn('Could not clear server session', error);
+            }
             localStorage.removeItem('adminUser');
             document.getElementById('main-app').style.display = 'none';
             document.getElementById('auth-gate').style.display = 'flex';
@@ -1283,6 +2394,7 @@
             document.getElementById('sidebar-username').textContent = currentAdminUser.username;
             document.getElementById('sidebar-avatar').textContent = currentAdminUser.username[0].toUpperCase();
             loadAllUsers();
+            loadOverviewDashboard();
             updateReportsBadge();
             setInterval(updateReportsBadge, 30000); // poll every 30 seconds
         }
@@ -1291,37 +2403,60 @@
         function showSection(name) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('.admin-tab').forEach(n => n.classList.remove('active'));
             document.getElementById('section-' + name).classList.add('active');
             const navEl = document.getElementById('nav-' + name);
             if (navEl) navEl.classList.add('active');
+            document.getElementById('tab-' + name)?.classList.add('active');
 
             if (name === 'users' || name === 'overview') {
                 loadAllUsers();
             }
+            if (name === 'overview') {
+                loadOverviewDashboard();
+            }
             if (name === 'reports') {
+                setDefaultReportRange();
                 loadReports();
             }
 
             // Close mobile sidebar
-            document.getElementById('sidebar').classList.remove('open');
+            toggleSidebar(false);
         }
 
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('open');
+        function toggleSidebar(forceOpen) {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('mobile-backdrop');
+            const shouldOpen = forceOpen === undefined ? !sidebar.classList.contains('open') : forceOpen;
+            sidebar.classList.toggle('open', shouldOpen);
+            if (backdrop) backdrop.classList.toggle('active', shouldOpen);
         }
 
         // ===== SERVANT REPORTS =====
         let allReports = [];
 
+        function setDefaultReportRange() {
+            const fromEl = document.getElementById('report-date-from-filter');
+            const toEl = document.getElementById('report-date-to-filter');
+            if (!fromEl || !toEl || fromEl.value || toEl.value) return;
+            const today = new Date();
+            const prior = new Date(today);
+            prior.setMonth(prior.getMonth() - 1);
+            fromEl.value = prior.toISOString().split('T')[0];
+            toEl.value = today.toISOString().split('T')[0];
+        }
+
         async function loadReports() {
-            const dateVal = document.getElementById('report-date-filter').value;
+            const dateFrom = document.getElementById('report-date-from-filter').value;
+            const dateTo = document.getElementById('report-date-to-filter').value;
             const typeVal = document.getElementById('report-type-filter').value;
             const container = document.getElementById('reports-table-container');
             container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><span class="material-icons-round spin">sync</span></div>';
 
             try {
                 let url = '/api/admin/servant-reports?';
-                if (dateVal) url += `date=${dateVal}&`;
+                if (dateFrom) url += `from=${dateFrom}&`;
+                if (dateTo) url += `to=${dateTo}&`;
                 if (typeVal) url += `type=${typeVal}`;
                 const res = await fetch(url);
                 const data = await res.json();
@@ -1374,15 +2509,15 @@
                     ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--danger);margin-right:4px;"></span>'
                     : '';
                 return `<tr style="${r.is_read === 0 ? 'background:rgba(91,142,240,0.04);' : ''}">
-                            <td>${unreadDot}</td>
-                            <td style="font-weight:600;">${escHtml(r.servant_username)}</td>
-                            <td><span style="color:${typeColor};font-weight:700;font-size:0.82rem;">${typeIcon} ${typeLabel}</span></td>
-                            <td style="color:var(--text-dim);">${r.date}</td>
-                            <td style="text-align:center;">${r.total_count}</td>
-                            <td style="text-align:center;color:var(--success);font-weight:700;">${r.present_count}</td>
-                            <td style="text-align:center;color:var(--danger);font-weight:700;">${r.absent_count}</td>
-                            <td style="color:var(--text-dim);font-size:0.78rem;">${formatDate(r.submitted_at)}</td>
-                            <td><button class="btn btn-danger btn-sm" onclick="deleteReport(${r.id})">
+                            <td data-label="Status">${unreadDot}</td>
+                            <td data-label="Servant" style="font-weight:600;">${escHtml(r.servant_username)}</td>
+                            <td data-label="Type"><span style="color:${typeColor};font-weight:700;font-size:0.82rem;">${typeIcon} ${typeLabel}</span></td>
+                            <td data-label="Date" style="color:var(--text-dim);">${r.date}</td>
+                            <td data-label="Total" style="text-align:center;">${r.total_count}</td>
+                            <td data-label="Present" style="text-align:center;color:var(--success);font-weight:700;">${r.present_count}</td>
+                            <td data-label="Absent" style="text-align:center;color:var(--danger);font-weight:700;">${r.absent_count}</td>
+                            <td data-label="Submitted" style="color:var(--text-dim);font-size:0.78rem;">${formatDate(r.submitted_at)}</td>
+                            <td data-label="Actions"><button class="btn btn-danger btn-sm" onclick="deleteReport(${r.id})">
                                 <span class="material-icons-round" style="font-size:14px;">delete</span>
                             </button></td>
                         </tr>`;
@@ -1390,6 +2525,54 @@
                 </tbody>
             </table>
         `;
+        }
+
+        function renderReportsTable() {
+            const el = document.getElementById('reports-table-container');
+            if (allReports.length === 0) {
+                el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);">No reports found. Reports appear here when servants submit attendance or eftikad.</div>';
+                return;
+            }
+            el.innerHTML = `
+                <div class="reports-list">
+                    ${allReports.map(r => {
+                        const isAttendance = r.report_type === 'attendance';
+                        const icon = isAttendance ? 'assignment_turned_in' : 'home';
+                        const typeLabel = isAttendance ? 'Attendance' : 'Eftikad';
+                        return `
+                            <article class="report-card ${r.is_read === 0 ? 'unread' : ''}">
+                                ${r.is_read === 0 ? '<span class="report-dot"></span>' : ''}
+                                <button class="report-delete" onclick="deleteReport(${r.id})" title="Delete report">
+                                    <span class="material-icons-round" style="font-size:18px;">delete</span>
+                                </button>
+                                <div class="report-card-header">
+                                    <div class="report-icon ${isAttendance ? 'attendance' : 'eftikad'}">
+                                        <span class="material-icons-round">${icon}</span>
+                                    </div>
+                                    <div>
+                                        <div class="report-title">${escHtml(r.servant_username)}</div>
+                                        <div class="report-meta">${typeLabel} - ${r.date}</div>
+                                        <div class="report-meta">Submitted ${formatDate(r.submitted_at)}</div>
+                                    </div>
+                                </div>
+                                <div class="report-stats">
+                                    <div class="report-stat">
+                                        <div class="report-stat-value">${r.total_count}</div>
+                                        <div class="report-stat-label">Total</div>
+                                    </div>
+                                    <div class="report-stat">
+                                        <div class="report-stat-value present">${r.present_count}</div>
+                                        <div class="report-stat-label">${isAttendance ? 'Present' : 'Visited'}</div>
+                                    </div>
+                                    <div class="report-stat">
+                                        <div class="report-stat-value absent">${r.absent_count}</div>
+                                        <div class="report-stat-label">Absent</div>
+                                    </div>
+                                </div>
+                            </article>`;
+                    }).join('')}
+                </div>
+            `;
         }
 
         async function deleteReport(id) {
@@ -1407,6 +2590,79 @@
             }
         }
 
+        function renderReportsTable() {
+            const el = document.getElementById('reports-table-container');
+            if (allReports.length === 0) {
+                el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);">No reports found. Reports appear here when servants submit attendance or eftikad.</div>';
+                return;
+            }
+
+            const grouped = allReports.reduce((acc, report) => {
+                const name = report.servant_username || 'Unknown';
+                if (!acc[name]) acc[name] = [];
+                acc[name].push(report);
+                return acc;
+            }, {});
+
+            el.innerHTML = `
+                <div class="reports-list">
+                    ${Object.entries(grouped).map(([servant, reports]) => {
+                        const totalPresent = reports.reduce((sum, r) => sum + Number(r.present_count || 0), 0);
+                        const initial = escHtml(servant.charAt(0).toUpperCase() || '?');
+                        return `
+                            <section class="servant-report-group">
+                                <div class="servant-report-header">
+                                    <div class="servant-report-person">
+                                        <div class="servant-report-avatar">${initial}</div>
+                                        <div>
+                                            <div class="servant-report-name">${escHtml(servant)}</div>
+                                            <div class="servant-report-count">${reports.length} submission${reports.length === 1 ? '' : 's'}</div>
+                                        </div>
+                                    </div>
+                                    <div class="servant-report-total">
+                                        <strong>${totalPresent}</strong>
+                                        <span>Present</span>
+                                    </div>
+                                </div>
+                                <div class="servant-submissions">
+                                    ${reports.map(r => {
+                                        const isAttendance = r.report_type === 'attendance';
+                                        const icon = isAttendance ? 'assignment_turned_in' : 'home';
+                                        const typeLabel = isAttendance ? 'Attendance' : 'Eftikad';
+                                        return `
+                                            <article class="servant-submission ${r.is_read === 0 ? 'unread' : ''}">
+                                                ${r.is_read === 0 ? '<span class="report-dot"></span>' : ''}
+                                                <button class="report-delete" onclick="deleteReport(${r.id})" title="Delete report">
+                                                    <span class="material-icons-round" style="font-size:18px;">delete</span>
+                                                </button>
+                                                <div class="submission-top">
+                                                    <span class="material-icons-round">${icon}</span>
+                                                    <span>${typeLabel}</span>
+                                                </div>
+                                                <div class="submission-meta">${r.date} • Submitted ${formatDate(r.submitted_at)}</div>
+                                                <div class="submission-stats">
+                                                    <div class="submission-stat">
+                                                        <strong>${r.total_count}</strong>
+                                                        <span>Total</span>
+                                                    </div>
+                                                    <div class="submission-stat">
+                                                        <strong class="present">${r.present_count}</strong>
+                                                        <span>${isAttendance ? 'Present' : 'Visited'}</span>
+                                                    </div>
+                                                    <div class="submission-stat">
+                                                        <strong class="absent">${r.absent_count}</strong>
+                                                        <span>Absent</span>
+                                                    </div>
+                                                </div>
+                                            </article>`;
+                                    }).join('')}
+                                </div>
+                            </section>`;
+                    }).join('')}
+                </div>
+            `;
+        }
+
         async function markAllRead() {
             try {
                 await fetch('/api/admin/servant-reports/mark-read', { method: 'POST' });
@@ -1418,10 +2674,12 @@
         }
 
         function downloadReports() {
-            const dateVal = document.getElementById('report-date-filter').value;
+            const dateFrom = document.getElementById('report-date-from-filter').value;
+            const dateTo = document.getElementById('report-date-to-filter').value;
             const typeVal = document.getElementById('report-type-filter').value;
             let url = '/api/admin/servant-reports/download?';
-            if (dateVal) url += `date=${dateVal}&`;
+            if (dateFrom) url += `from=${dateFrom}&`;
+            if (dateTo) url += `to=${dateTo}&`;
             if (typeVal) url += `type=${typeVal}`;
             window.open(url, '_blank');
             showToast('Downloading report...', 'info');
@@ -1441,6 +2699,195 @@
             } catch (e) { /* silent */ }
         }
 
+        // ===== OVERVIEW DATA =====
+        async function loadOverviewDashboard() {
+            const el = document.getElementById('overview-data-dashboard');
+            if (!el) return;
+            el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);"><span class="material-icons-round spin">sync</span></div>';
+
+            try {
+                const [studentsData, pointsData, birthdaysData, announcementsData, reportsData] = await Promise.all([
+                    fetchJsonSafe('/api/students', { students: [] }),
+                    fetchJsonSafe('/api/points/all', { students: [] }),
+                    fetchJsonSafe('/api/birthdays?days=30', { birthdays: [] }),
+                    fetchJsonSafe('/api/announcements', { announcements: [] }),
+                    fetchJsonSafe('/api/admin/servant-reports', { reports: [] })
+                ]);
+
+                renderOverviewDashboard({
+                    students: studentsData.students || [],
+                    pointStudents: pointsData.students || [],
+                    birthdays: birthdaysData.birthdays || [],
+                    announcements: announcementsData.announcements || [],
+                    reports: reportsData.reports || []
+                });
+            } catch (e) {
+                el.innerHTML = '<div style="padding:30px;text-align:center;color:var(--danger);font-weight:700;">Could not load dashboard data.</div>';
+            }
+        }
+
+        async function fetchJsonSafe(url, fallback) {
+            try {
+                return await fetchJson(url);
+            } catch (e) {
+                console.warn('Dashboard data failed:', url, e);
+                return fallback;
+            }
+        }
+
+        async function fetchJson(url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(url);
+            return res.json();
+        }
+
+        function renderOverviewDashboard(data) {
+            const el = document.getElementById('overview-data-dashboard');
+            const students = data.students;
+            const pointStudents = data.pointStudents;
+            const birthdays = data.birthdays;
+            const announcements = data.announcements;
+            const reports = data.reports;
+            const totalPoints = pointStudents.reduce((sum, s) => sum + pointValue(s), 0);
+            const topPoints = [...pointStudents].sort((a, b) => pointValue(b) - pointValue(a)).slice(0, 5);
+            const classRows = buildClassRows(students);
+            const attendanceReports = reports.filter(r => r.report_type === 'attendance').length;
+            const eftikadReports = reports.filter(r => r.report_type === 'eftikad').length;
+
+            el.innerHTML = `
+                <div class="stats-row" style="margin-bottom:22px;">
+                    ${overviewMetric('school', students.length, 'Students')}
+                    ${overviewMetric('stars', totalPoints, 'Total Points')}
+                    ${overviewMetric('cake', birthdays.length, 'Birthdays Next 30 Days')}
+                    ${overviewMetric('campaign', announcements.length, 'Announcements')}
+                    ${overviewMetric('assignment', reports.length, 'Reports')}
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;">
+                    ${overviewPanel('Class / Grade Breakdown', 'groups', renderClassBreakdown(classRows))}
+                    ${overviewPanel('Top Points', 'leaderboard', renderSimpleRows(topPoints, s => `
+                        <span>${escHtml(s.name || 'Student')}</span>
+                        <strong style="color:var(--gold);">${pointValue(s)} pts</strong>
+                    `))}
+                    ${overviewPanel('Reports', 'fact_check', renderSimpleRows([
+                        { label: 'Attendance reports', value: attendanceReports },
+                        { label: 'Eftikad reports', value: eftikadReports },
+                        { label: 'Unread reports', value: reports.filter(r => r.is_read === 0).length }
+                    ], r => `
+                        <span>${r.label}</span>
+                        <strong>${r.value}</strong>
+                    `))}
+                    ${overviewPanel('Upcoming Birthdays', 'event', renderSimpleRows(birthdays.slice(0, 5), b => `
+                        <span>${escHtml(b.name || 'Student')}</span>
+                        <strong>${escHtml(formatBirthdayText(b))}</strong>
+                    `))}
+                    ${overviewPanel('Recent Announcements', 'notifications', renderSimpleRows(announcements.slice(0, 5), a => `
+                        <span>${escHtml(a.title || 'Announcement')}</span>
+                        <strong>${formatDate(a.created_at || a.date)}</strong>
+                    `))}
+                    ${overviewPanel('Recent Reports', 'history', renderSimpleRows(reports.slice(0, 5), r => `
+                        <span>${escHtml(r.servant_username || 'Servant')} - ${r.report_type === 'eftikad' ? 'Eftikad' : 'Attendance'}</span>
+                        <strong>${escHtml(r.date || formatDate(r.submitted_at))}</strong>
+                    `))}
+                </div>
+            `;
+        }
+
+        function overviewMetric(icon, value, label) {
+            return `
+                <div class="stat-card">
+                    <div class="stat-icon blue"><span class="material-icons-round">${icon}</span></div>
+                    <div class="stat-value">${Number(value || 0).toLocaleString()}</div>
+                    <div class="stat-label">${label}</div>
+                </div>
+            `;
+        }
+
+        function overviewPanel(title, icon, body) {
+            return `
+                <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:18px;min-height:190px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;color:var(--text);font-weight:800;">
+                        <span class="material-icons-round" style="color:var(--primary);">${icon}</span>
+                        ${title}
+                    </div>
+                    ${body}
+                </div>
+            `;
+        }
+
+        function renderSimpleRows(items, rowRenderer) {
+            if (!items.length) {
+                return '<div style="padding:18px;text-align:center;color:var(--text-muted);">No data yet.</div>';
+            }
+            return `
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    ${items.map(item => `
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding-bottom:10px;color:var(--text-dim);font-size:0.88rem;">
+                            ${rowRenderer(item)}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderClassBreakdown(rows) {
+            return renderSimpleRows(rows, row => `
+                <span>${escHtml(row.className)}</span>
+                <strong>${row.count}</strong>
+            `);
+        }
+
+        function buildClassRows(students) {
+            const counts = {};
+            students.forEach(student => {
+                const className = studentClassName(student);
+                counts[className] = (counts[className] || 0) + 1;
+            });
+            return Object.entries(counts)
+                .map(([className, count]) => ({ className, count }))
+                .sort((a, b) => classSortValue(a.className) - classSortValue(b.className));
+        }
+
+        function studentClassName(student) {
+            if (student.class_name && student.class_name !== 'all') return student.class_name;
+            return gradeToClassName(student.grade);
+        }
+
+        function gradeToClassName(grade) {
+            const text = String(grade ?? '').trim();
+            if (!text) return 'Not assigned';
+            if (text.toLowerCase() === 'kg' || text === '0') return 'KG';
+            const n = parseInt(text, 10);
+            if (!Number.isFinite(n)) return text;
+            if (n >= 9) return 'High School';
+            if (n >= 6) return 'Middle School';
+            const suffix = n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th';
+            return `${n}${suffix} Grade`;
+        }
+
+        function classSortValue(className) {
+            if (className === 'KG') return 0;
+            if (className.includes('1st')) return 1;
+            if (className.includes('2nd')) return 2;
+            if (className.includes('3rd')) return 3;
+            if (className.includes('4th')) return 4;
+            if (className.includes('5th')) return 5;
+            if (className === 'Middle School') return 6;
+            if (className === 'High School') return 9;
+            return 99;
+        }
+
+        function pointValue(student) {
+            return Number(student.total_points ?? student.points ?? student.current_points ?? 0) || 0;
+        }
+
+        function formatBirthdayText(birthday) {
+            if (birthday.days_until === 0) return 'Today';
+            if (birthday.days_until === 1) return 'Tomorrow';
+            if (birthday.days_until !== undefined && birthday.days_until !== null) return `${birthday.days_until} days`;
+            return birthday.dob || birthday.birth_date || birthday.birthday || 'Soon';
+        }
+
         // ===== USERS =====
         async function loadAllUsers() {
             try {
@@ -1457,10 +2904,11 @@
 
         function renderStats() {
             const admins = allUsers.filter(u => u.role === 'admin').length;
+            const subAdmins = allUsers.filter(u => u.role === 'sub_admin').length;
             const users = allUsers.filter(u => u.role === 'user').length;
             document.getElementById('stat-total').textContent = allUsers.length;
             document.getElementById('stat-admins').textContent = admins;
-            document.getElementById('stat-users').textContent = users;
+            document.getElementById('stat-users').textContent = users + subAdmins;
         }
 
         function renderOverviewUsers() {
@@ -1475,15 +2923,17 @@
                     <tr>
                         <th>Username</th>
                         <th>Role</th>
+                        <th>Class</th>
                         <th>Created</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${allUsers.slice(0, 5).map(u => `
                         <tr>
-                            <td style="font-weight:600;">${escHtml(u.username)}</td>
-                            <td><span class="role-badge ${u.role}">${u.role}</span></td>
-                            <td style="color:var(--text-dim);font-size:0.82rem;">${formatDate(u.created_at)}</td>
+                            <td data-label="Username" style="font-weight:600;">${escHtml(u.username)}</td>
+                            <td data-label="Role"><span class="role-badge ${u.role}">${u.role}</span></td>
+                            <td data-label="Class" style="color:var(--text-dim);font-size:0.82rem;font-weight:700;">${renderAssignedClassText(u)}</td>
+                            <td data-label="Created" style="color:var(--text-dim);font-size:0.82rem;">${formatDate(u.created_at)}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -1505,6 +2955,7 @@
                         <th>#</th>
                         <th>Username</th>
                         <th>Role</th>
+                        <th>Class</th>
                         <th>Created</th>
                         <th>Actions</th>
                     </tr>
@@ -1512,8 +2963,8 @@
                 <tbody>
                     ${allUsers.map((u, i) => `
                         <tr>
-                            <td style="color:var(--text-muted);font-size:0.8rem;">${u.id}</td>
-                            <td>
+                            <td data-label="ID" style="color:var(--text-muted);font-size:0.8rem;">${u.id}</td>
+                            <td data-label="Username">
                                 <div style="display:flex;align-items:center;gap:10px;">
                                     <div style="width:30px;height:30px;border-radius:50%;background:${u.role === 'admin' ? 'var(--gold-dim)' : 'rgba(91,142,240,0.15)'};display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:800;color:${u.role === 'admin' ? 'var(--gold)' : 'var(--primary)'};">
                                         ${u.username[0].toUpperCase()}
@@ -1522,10 +2973,12 @@
                                     ${u.username === currentAdminUser?.username ? '<span style="font-size:0.7rem;color:var(--text-muted);margin-left:4px;">(you)</span>' : ''}
                                 </div>
                             </td>
-                            <td><span class="role-badge ${u.role}">${u.role}</span></td>
-                            <td style="color:var(--text-dim);font-size:0.82rem;">${formatDate(u.created_at)}</td>
-                            <td>
+                            <td data-label="Role"><span class="role-badge ${u.role}">${u.role}</span></td>
+                            <td data-label="Class" style="color:var(--text-dim);font-size:0.82rem;font-weight:700;">${renderAssignedClassText(u)}</td>
+                            <td data-label="Created" style="color:var(--text-dim);font-size:0.82rem;">${formatDate(u.created_at)}</td>
+                            <td data-label="Actions">
                                 <div class="actions-cell">
+                                    ${renderSectionSelect(u)}
                                     <button class="btn btn-warning btn-sm" onclick="openPwModal(${u.id},'${escHtml(u.username)}')">
                                         <span class="material-icons-round" style="font-size:14px;">key</span>
                                         Password
@@ -1550,6 +3003,11 @@
             const password = document.getElementById('reg-password').value;
             const confirm = document.getElementById('reg-confirm').value;
             const role = document.getElementById('reg-role').value;
+            const classSelect = document.getElementById('reg-class');
+            const class_name = classSelect.options[classSelect.selectedIndex]?.value || '';
+            const assigned_grades = [...document.querySelectorAll('#reg-grades input:checked')].map(input => input.value);
+            let assigned_sections = [...document.querySelectorAll('#reg-sections input:checked')].map(input => input.value);
+            if (role === 'user' && assigned_sections.length === 0) assigned_sections = ['Boy', 'Girl'];
             const btn = document.getElementById('register-btn');
 
             if (password !== confirm) {
@@ -1562,6 +3020,16 @@
                 return;
             }
 
+            if (role === 'user' && assigned_grades.length === 0) {
+                showToast('Please assign this servant to at least one grade.', 'error');
+                return;
+            }
+
+            if (role === 'sub_admin' && (!class_name || class_name === 'all')) {
+                showToast('Please assign this sub-admin to a class.', 'error');
+                return;
+            }
+
             btn.disabled = true;
             btn.innerHTML = '<span class="material-icons-round spin">sync</span> Creating...';
 
@@ -1569,13 +3037,19 @@
                 const res = await fetch('/api/admin/users', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password, role })
+                    body: JSON.stringify({ username, password, role, class_name, assigned_grades, assigned_sections })
                 });
                 const data = await res.json();
 
                 if (data.success) {
-                    showToast(`Account "${username}" created successfully!`, 'success');
+                    const savedClass = data.class_name || class_name;
+                    const sectionText = role === 'user' ? ` (${formatAssignedSections(assigned_sections)})` : '';
+                    const assignmentText = role === 'user' ? `grades ${assigned_grades.join(', ')}${sectionText}` : formatClassName(savedClass);
+                    showToast(`Account "${username}" created for ${assignmentText}`, 'success');
                     document.getElementById('register-form').reset();
+                    document.querySelectorAll('#reg-grades input').forEach(input => input.checked = false);
+                    document.querySelectorAll('#reg-sections input').forEach(input => input.checked = true);
+                    handleRoleClassOptions();
                     loadAllUsers();
                     setTimeout(() => showSection('users'), 800);
                 } else {
@@ -1586,6 +3060,161 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<span class="material-icons-round">person_add</span> Create Account';
+            }
+        }
+
+        function getClassOptionsForRole(role) {
+            return role === 'user' ? servantClassOptions : classOptions;
+        }
+
+        function getUserClassName(user) {
+            return user.class_name || user.className || user.assigned_class || user.class || 'all';
+        }
+
+        function getUserAssignedGrades(user) {
+            const raw = user.assigned_grades || user.assignedGrades || '';
+            return String(raw).split(',').map(g => g.trim()).filter(Boolean);
+        }
+
+        function getUserAssignedSections(user) {
+            const raw = user.assigned_sections || user.assignedSections || '';
+            return String(raw).split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        function formatAssignedSections(sections) {
+            const values = (sections || []).map(s => String(s).trim()).filter(Boolean);
+            if (values.length === 0 || values.length >= 2) return 'Boys & Girls';
+            return values[0] === 'Boy' ? 'Boys' : 'Girls';
+        }
+
+        function renderAssignedClassText(user) {
+            if (user.role === 'user') {
+                const grades = getUserAssignedGrades(user);
+                const sections = getUserAssignedSections(user);
+                return grades.length ? `Grades ${grades.map(escHtml).join(', ')} · ${escHtml(formatAssignedSections(sections))}` : '<span style="color:var(--danger);">No grades assigned</span>';
+            }
+            const current = getUserClassName(user);
+            if (user.role === 'sub_admin' && current === 'all') {
+                return '<span style="color:var(--danger);">Not assigned</span>';
+            }
+            return formatClassName(current);
+        }
+
+        function renderClassSelect(user) {
+            const current = getUserClassName(user);
+            const needsClass = user.role === 'user' && current === 'all';
+            const options = getClassOptionsForRole(user.role);
+            const warningStyle = needsClass ? 'border-color:var(--danger);color:var(--danger);' : '';
+            return `
+                <select class="admin-input" onchange="saveUserClass(${user.id}, this.value)"
+                    style="min-width:150px;padding:8px 10px;border-radius:8px;font-size:0.82rem;${warningStyle}">
+                    ${needsClass ? '<option value="all" selected disabled>Assign Class</option>' : ''}
+                    ${options.map(cls => `
+                        <option value="${cls}" ${current === cls ? 'selected' : ''}>${formatClassName(cls)}</option>
+                    `).join('')}
+                </select>
+            `;
+        }
+
+        function renderSectionSelect(user) {
+            if (user.role !== 'user') return '';
+            const sections = getUserAssignedSections(user);
+            const current = sections.length === 1 ? sections[0] : 'Both';
+            return `
+                <select class="admin-input" onchange="saveUserSections(${user.id}, this.value)"
+                    title="Assign Boys/Girls"
+                    style="min-width:120px;padding:8px 10px;border-radius:8px;font-size:0.82rem;">
+                    <option value="Both" ${current === 'Both' ? 'selected' : ''}>Both</option>
+                    <option value="Boy" ${current === 'Boy' ? 'selected' : ''}>Boys</option>
+                    <option value="Girl" ${current === 'Girl' ? 'selected' : ''}>Girls</option>
+                </select>
+            `;
+        }
+
+        function handleRoleClassOptions() {
+            const roleEl = document.getElementById('reg-role');
+            const classEl = document.getElementById('reg-class');
+            const classGroup = classEl?.closest('.admin-input-group');
+            const classLabel = document.getElementById('reg-class-label');
+            const gradesGroup = document.getElementById('reg-grades-group');
+            const sectionsGroup = document.getElementById('reg-sections-group');
+            if (!roleEl || !classEl) return;
+
+            const previous = classEl.value;
+            const options = getClassOptionsForRole(roleEl.value);
+            classEl.innerHTML = options.map(cls => `
+                <option value="${cls}">${formatClassName(cls)}</option>
+            `).join('');
+            classEl.value = options.includes(previous) ? previous : options[0];
+
+            if (roleEl.value === 'user') {
+                if (gradesGroup) gradesGroup.style.display = '';
+                if (sectionsGroup) sectionsGroup.style.display = '';
+                if (!document.querySelector('#reg-sections input:checked')) {
+                    document.querySelectorAll('#reg-sections input').forEach(input => input.checked = true);
+                }
+                if (classGroup) classGroup.style.opacity = '0.45';
+                classEl.disabled = true;
+                classEl.value = 'all';
+            } else {
+                classEl.disabled = false;
+                if (classGroup) classGroup.style.opacity = '';
+                if (gradesGroup) gradesGroup.style.display = 'none';
+                if (sectionsGroup) sectionsGroup.style.display = 'none';
+                if (classLabel) classLabel.textContent = roleEl.value === 'sub_admin' ? 'Assigned Class *' : 'Access Scope';
+            }
+        }
+
+        async function saveUserClass(userId, className) {
+            if (!className) {
+                showToast('Please choose a class first', 'error');
+                loadAllUsers();
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/class`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ class_name: className })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const user = allUsers.find(u => u.id === userId);
+                    if (user) user.class_name = className;
+                    showToast('Class assignment updated', 'success');
+                    loadAllUsers();
+                } else {
+                    showToast(data.error || 'Failed to update class', 'error');
+                    loadAllUsers();
+                }
+            } catch (e) {
+                showToast('Server error', 'error');
+                loadAllUsers();
+            }
+        }
+
+        async function saveUserSections(userId, value) {
+            const assigned_sections = value === 'Both' ? ['Boy', 'Girl'] : [value];
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/sections`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ assigned_sections })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const user = allUsers.find(u => u.id === userId);
+                    if (user) user.assigned_sections = assigned_sections.join(',');
+                    showToast('Section assignment updated', 'success');
+                    loadAllUsers();
+                } else {
+                    showToast(data.error || 'Failed to update section', 'error');
+                    loadAllUsers();
+                }
+            } catch (e) {
+                showToast('Server error', 'error');
+                loadAllUsers();
             }
         }
 
@@ -1669,6 +3298,10 @@
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
+        function formatClassName(className) {
+            return !className || className === 'all' ? 'All Classes' : escHtml(className);
+        }
+
         function formatDate(dateStr) {
             if (!dateStr) return '—';
             try {
@@ -1679,6 +3312,8 @@
 
         // ===== INIT =====
         window.addEventListener('load', () => {
+            handleRoleClassOptions();
+
             // Check for existing session
             const saved = localStorage.getItem('adminUser');
             if (saved) {

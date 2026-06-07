@@ -1110,6 +1110,10 @@ body {
     transform: translateX(-50%) translateY(0);
 }
 
+.modal-overlay.active .bottom-sheet {
+    transform: translateX(-50%) translateY(0);
+}
+
 .bottom-sheet.large {
     max-height: 95vh;
 }
