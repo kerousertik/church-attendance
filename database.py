@@ -7,42 +7,79 @@ from typing import List, Dict, Optional
 from werkzeug.security import check_password_hash, generate_password_hash
 
 DB_FILE = "attendance.db"
+GRADE_VALUES = ['Pre K3', 'Pre K4', 'KG'] + list(range(1, 13))
 CLASS_GRADE_MAP = {
-    'High School': [9, 10, 11, 12],
-    'Middle School': [6, 7, 8],
+    'Pre K3': ['Pre K3'],
+    'Pre K4': ['Pre K4'],
+    'KG': ['KG'],
+    '1st Grade': [1],
+    '2nd Grade': [2],
+    '3rd Grade': [3],
     '4th Grade': [4],
     '5th Grade': [5],
+    '6th Grade': [6],
+    '7th Grade': [7],
+    '8th Grade': [8],
+    '9th Grade': [9],
+    '10th Grade': [10],
+    '11th Grade': [11],
+    '12th Grade': [12],
+    'High School': [9, 10, 11, 12],
+    'Middle School': [6, 7, 8],
 }
 
-def class_grade_values(class_name: str) -> List[int]:
+def class_grade_values(class_name: str) -> List:
     """Return grade numbers commonly represented by a class name."""
-    return CLASS_GRADE_MAP.get(class_name or '', [])
+    if not class_name or class_name == 'all':
+        return []
+    if class_name in CLASS_GRADE_MAP:
+        return CLASS_GRADE_MAP[class_name]
+    value = normalize_grade_value(class_name)
+    return [value] if value is not None else []
+
+
+def grade_label_from_value(value) -> str:
+    """Display label for a normalized grade value."""
+    if value in ('Pre K3', 'Pre K4', 'KG'):
+        return value
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return str(value or '')
+    suffix = 'th'
+    if n % 100 not in (11, 12, 13):
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+    return f'{n}{suffix} Grade'
 
 def grade_to_class_name(grade) -> str:
     """Map a student grade value to the class bucket used by the app."""
     grade_text = str(grade or '').strip()
-    if grade_text.upper() in ('KG', 'K'):
-        return 'KG'
-    try:
-        grade_num = int(float(grade_text))
-    except (TypeError, ValueError):
-        return ''
-    if grade_num == 4:
-        return '4th Grade'
-    if grade_num == 5:
-        return '5th Grade'
-    if 6 <= grade_num <= 8:
-        return 'Middle School'
-    if 9 <= grade_num <= 12:
-        return 'High School'
-    ordinal_labels = {1: '1st Grade', 2: '2nd Grade', 3: '3rd Grade'}
-    return ordinal_labels.get(grade_num, f'{grade_num}th Grade')
+    value = normalize_grade_value(grade_text)
+    return grade_label_from_value(value) if value is not None else ''
 
 def normalize_grade_value(grade):
-    """Keep KG as text and numeric grades as integers."""
+    """Keep Pre-K/KG as text and numeric grades as integers."""
     grade_text = str(grade or '').strip()
-    if grade_text.upper() in ('KG', 'K'):
+    compact = grade_text.lower().replace('-', '').replace('_', '').replace(' ', '')
+    if compact in ('prek3', 'pk3', 'prekindergarten3', 'prekindergarden3'):
+        return 'Pre K3'
+    if compact in ('prek4', 'pk4', 'prekindergarten4', 'prekindergarden4'):
+        return 'Pre K4'
+    if grade_text.upper() in ('KG', 'K', 'KINDERGARTEN'):
         return 'KG'
+    leading_digits = ''
+    for char in grade_text:
+        if char.isdigit():
+            leading_digits += char
+        elif leading_digits:
+            break
+    if leading_digits:
+        try:
+            value = int(leading_digits)
+            if 1 <= value <= 12:
+                return value
+        except ValueError:
+            pass
     try:
         return int(float(grade_text))
     except (TypeError, ValueError):
@@ -82,7 +119,8 @@ def normalize_assigned_grades(grades) -> str:
     raw = grades.replace(';', ',').split(',') if isinstance(grades, str) else list(grades)
     clean = []
     for grade in raw:
-        text = str(grade).replace('.0', '').strip()
+        value = normalize_grade_value(grade)
+        text = str(value if value is not None else grade).replace('.0', '').strip()
         if text and text not in clean:
             clean.append(text)
     return ','.join(clean)
@@ -357,6 +395,142 @@ def get_servant_reports(date_filter: str = None, type_filter: str = None,
     return reports
 
 
+def grade_sort_key(grade):
+    value = normalize_grade_value(grade)
+    if value == 'Pre K3':
+        return -3
+    if value == 'Pre K4':
+        return -2
+    if value == 'KG':
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 99
+
+
+def get_grade_report_summary(date_from: str = None, date_to: str = None, grade_filter: str = None) -> List[Dict]:
+    """Summarize attendance, absence, rewards, and eftikad by grade."""
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    selected_grade = normalize_grade_value(grade_filter) if grade_filter and grade_filter != 'all' else None
+
+    cursor.execute("SELECT id, grade FROM students")
+    student_rows = [dict(r) for r in cursor.fetchall()]
+    student_grade = {}
+    summary = {}
+
+    def ensure(grade):
+        value = normalize_grade_value(grade)
+        if value is None:
+            value = str(grade or 'Unknown').strip() or 'Unknown'
+        if selected_grade is not None and value != selected_grade:
+            return None
+        key = str(value)
+        if key not in summary:
+            summary[key] = {
+                'grade': value,
+                'grade_label': grade_label_from_value(value),
+                'total_students': 0,
+                'present_count': 0,
+                'absent_count': 0,
+                'present_students': 0,
+                'absent_students': 0,
+                'attendance_records': 0,
+                'rewarded_students': 0,
+                'reward_events': 0,
+                'reward_points': 0,
+                'eftikad_visits': 0,
+                'eftikad_students': 0,
+                '_present_student_ids': set(),
+                '_absent_student_ids': set(),
+                '_rewarded_student_ids': set(),
+                '_eftikad_student_ids': set(),
+            }
+        return summary[key]
+
+    for row in student_rows:
+        bucket = ensure(row.get('grade'))
+        if bucket is None:
+            continue
+        student_grade[row['id']] = bucket['grade']
+        bucket['total_students'] += 1
+
+    attendance_query = "SELECT student_id, status FROM attendance WHERE 1=1"
+    params = []
+    if date_from:
+        attendance_query += " AND date >= ?"
+        params.append(date_from)
+    if date_to:
+        attendance_query += " AND date <= ?"
+        params.append(date_to)
+    cursor.execute(attendance_query, params)
+    for row in cursor.fetchall():
+        bucket = ensure(student_grade.get(row['student_id']))
+        if bucket is None:
+            continue
+        bucket['attendance_records'] += 1
+        if row['status'] == 'present':
+            bucket['present_count'] += 1
+            bucket['_present_student_ids'].add(row['student_id'])
+        else:
+            bucket['absent_count'] += 1
+            bucket['_absent_student_ids'].add(row['student_id'])
+
+    reward_query = "SELECT student_id, points_change FROM points_history WHERE points_change > 0"
+    params = []
+    if date_from:
+        reward_query += " AND date >= ?"
+        params.append(date_from)
+    if date_to:
+        reward_query += " AND date <= ?"
+        params.append(date_to)
+    cursor.execute(reward_query, params)
+    rewarded_by_grade = {}
+    for row in cursor.fetchall():
+        bucket = ensure(student_grade.get(row['student_id']))
+        if bucket is None:
+            continue
+        bucket['reward_events'] += 1
+        bucket['reward_points'] += row['points_change'] or 0
+        bucket['_rewarded_student_ids'].add(row['student_id'])
+        rewarded_by_grade.setdefault(str(bucket['grade']), set()).add(row['student_id'])
+
+    for key, ids in rewarded_by_grade.items():
+        if key in summary:
+            summary[key]['rewarded_students'] = len(ids)
+
+    try:
+        eft_query = "SELECT student_id FROM eftikad WHERE 1=1"
+        params = []
+        if date_from:
+            eft_query += " AND date >= ?"
+            params.append(date_from)
+        if date_to:
+            eft_query += " AND date <= ?"
+            params.append(date_to)
+        cursor.execute(eft_query, params)
+        for row in cursor.fetchall():
+            bucket = ensure(student_grade.get(row['student_id']))
+            if bucket is not None:
+                bucket['eftikad_visits'] += 1
+                bucket['_eftikad_student_ids'].add(row['student_id'])
+    except sqlite3.OperationalError:
+        pass
+
+    conn.close()
+    rows = []
+    for bucket in summary.values():
+        bucket['present_students'] = len(bucket.pop('_present_student_ids', set()))
+        bucket['absent_students'] = len(bucket.pop('_absent_student_ids', set()))
+        bucket['rewarded_students'] = len(bucket.pop('_rewarded_student_ids', set()))
+        bucket['eftikad_students'] = len(bucket.pop('_eftikad_student_ids', set()))
+        rows.append(bucket)
+    return sorted(rows, key=lambda item: grade_sort_key(item['grade']))
+
+
 def delete_servant_report(report_id: int) -> bool:
     """Delete a servant report by ID."""
     conn = sqlite3.connect(DB_FILE)
@@ -446,11 +620,11 @@ def get_all_users() -> List[Dict]:
 
 def add_user(username: str, password: str, role: str, class_name: str = 'all', assigned_grades=None, assigned_sections=None) -> Dict:
     """Add a new user. Returns success/error dict."""
-    if role not in ('admin', 'sub_admin', 'user'):
-        return {'success': False, 'error': 'Invalid role. Must be admin, sub_admin, or user.'}
+    if role not in ('admin', 'sub_admin', 'user', 'rewards'):
+        return {'success': False, 'error': 'Invalid role. Must be admin, sub_admin, rewards, or user.'}
     if not username or not password:
         return {'success': False, 'error': 'Username and password are required.'}
-    allowed_classes = ('all', 'High School', 'Middle School', '4th Grade', '5th Grade', 'KG')
+    allowed_classes = ('all', 'High School', 'Middle School') + tuple(grade_label_from_value(g) for g in GRADE_VALUES)
     class_name = class_name or 'all'
     assigned_grades_text = normalize_assigned_grades(assigned_grades)
     assigned_sections_text = normalize_assigned_sections(assigned_sections)
@@ -527,7 +701,7 @@ def update_user_password(user_id: int, new_password: str) -> bool:
 
 def update_user_class(user_id: int, class_name: str) -> bool:
     """Update a user's assigned class."""
-    allowed_classes = ('all', 'High School', 'Middle School', '4th Grade', '5th Grade', 'KG')
+    allowed_classes = ('all', 'High School', 'Middle School') + tuple(grade_label_from_value(g) for g in GRADE_VALUES)
     if class_name not in allowed_classes:
         return False
 
@@ -555,14 +729,15 @@ def update_user_class(user_id: int, class_name: str) -> bool:
 def update_user_grades(user_id: int, assigned_grades) -> bool:
     """Update a user's assigned grade list."""
     grades_text = normalize_assigned_grades(assigned_grades)
-    if not grades_text:
-        return False
 
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
     row = cursor.fetchone()
     if not row:
+        conn.close()
+        return False
+    if row[0] == 'user' and not grades_text:
         conn.close()
         return False
 
@@ -1521,7 +1696,8 @@ def get_bible_tracking_all(servant_filter: str = None) -> List[Dict]:
 
 # ==================== CHARTS ====================
 
-def get_class_attendance_stats(servant_filter: str = None, year: str = None, grades=None, sections=None) -> List[Dict]:
+def get_class_attendance_stats(servant_filter: str = None, year: str = None, grades=None, sections=None,
+                               date_from: str = None, date_to: str = None) -> List[Dict]:
     """Monthly attendance % per grade for charts."""
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
@@ -1567,6 +1743,12 @@ def get_class_attendance_stats(servant_filter: str = None, year: str = None, gra
     if year:
         query += " AND strftime('%Y', a.date)=?"
         params.append(year)
+    if date_from:
+        query += " AND a.date >= ?"
+        params.append(date_from)
+    if date_to:
+        query += " AND a.date <= ?"
+        params.append(date_to)
     query += " GROUP BY s.grade, month ORDER BY month DESC, s.grade LIMIT 120"
     cursor.execute(query, params)
     rows = [dict(r) for r in cursor.fetchall()]

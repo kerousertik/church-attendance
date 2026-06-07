@@ -3,6 +3,7 @@
 
 const DB_NAME = 'AttendanceDB';
 const DB_VERSION = 5;
+const ALL_GRADES = ['Pre K3', 'Pre K4', 'KG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 
 class AttendanceApp {
     constructor() {
@@ -80,7 +81,11 @@ class AttendanceApp {
         this.updateStats();
         this.loadBirthdays();
         this.updateUIForRole();
-        this.showHome();
+        if (this.isRewards) {
+            this.showPoints();
+        } else {
+            this.showHome();
+        }
 
         // Show header and navigation
         document.getElementById('main-header').style.display = 'flex';
@@ -91,11 +96,24 @@ class AttendanceApp {
         this.userRole = role;
         this.isAdmin = role === 'admin';
         this.isSubAdmin = role === 'sub_admin';
+        this.isRewards = role === 'rewards';
     }
 
     parseAssignedGrades(grades) {
-        if (Array.isArray(grades)) return grades.map(g => String(g).replace('.0', '').trim()).filter(Boolean);
-        return String(grades || '').split(',').map(g => g.replace('.0', '').trim()).filter(Boolean);
+        const raw = Array.isArray(grades) ? grades : String(grades || '').split(',');
+        return raw.map(g => this.gradeKey(g)).filter(Boolean);
+    }
+
+    gradeKey(grade) {
+        const text = String(grade || '').replace('.0', '').trim();
+        if (!text) return '';
+        const compact = text.toLowerCase().replace(/[-_\s]/g, '');
+        if (compact === 'prek3' || compact === 'pk3') return 'Pre K3';
+        if (compact === 'prek4' || compact === 'pk4') return 'Pre K4';
+        if (compact === 'kg' || compact === 'k' || text === '0') return 'KG';
+        const n = parseInt(text, 10);
+        if (Number.isFinite(n) && n >= 1 && n <= 12) return String(n);
+        return text;
     }
 
     parseAssignedSections(sections) {
@@ -162,6 +180,10 @@ class AttendanceApp {
         return this.isAdmin || this.isSubAdmin;
     }
 
+    canManagePoints() {
+        return this.isAdmin || this.isSubAdmin || this.isRewards;
+    }
+
     canManageUsers() {
         return this.isAdmin;
     }
@@ -179,18 +201,22 @@ class AttendanceApp {
 
         const username = this.username.toString().trim().toLowerCase();
         const assignedClass = (this.userClassName || '').toString().trim().toLowerCase();
-        const assignedGrades = new Set((this.assignedGrades || []).map(g => String(g).replace('.0', '').trim().toLowerCase()));
+        const assignedGrades = new Set((this.assignedGrades || []).map(g => this.gradeKey(g)).filter(Boolean));
         const assignedSections = new Set((this.assignedSections || []).map(s => this.normalizeGender(s)).filter(Boolean));
         const sectionAllowed = student => {
             if (assignedSections.size === 0) return true;
             return assignedSections.has(this.normalizeGender(student.gender));
         };
 
-        if (this.isServantUser() && assignedGrades.size > 0) {
+        if ((this.isServantUser() || this.isRewards) && assignedGrades.size > 0) {
             return students.filter(student => {
-                const studentGrade = String(student.grade || '').replace('.0', '').trim().toLowerCase();
+                const studentGrade = this.gradeKey(student.grade);
                 return assignedGrades.has(studentGrade) && sectionAllowed(student);
             });
+        }
+
+        if (this.isRewards && assignedGrades.size === 0) {
+            return students.filter(sectionAllowed);
         }
 
         const servants = await this.getAllServants();
@@ -204,7 +230,7 @@ class AttendanceApp {
             const directServantId = (student.servantId || '').toString().trim().toLowerCase();
             const studentClass = (student.class_name || student.className || '').toString().trim().toLowerCase();
             const studentGradeClass = this.gradeToClassName(student.grade).toLowerCase();
-            const studentGrade = String(student.grade || '').replace('.0', '').trim().toLowerCase();
+            const studentGrade = this.gradeKey(student.grade);
             const servantRecord = servantById[student.servantId];
             const servantName = (servantRecord?.name || '').toString().trim().toLowerCase();
             const servantEmail = (servantRecord?.email || '').toString().trim().toLowerCase();
@@ -215,22 +241,21 @@ class AttendanceApp {
                     studentClass === assignedClass ||
                     studentGradeClass === assignedClass ||
                     servantClass === assignedClass
-                ) && sectionAllowed(student)) ||
-                directServant === username ||
-                directServantId === username ||
-                servantName === username ||
-                servantEmail === username;
+                ) && sectionAllowed(student));
         });
     }
 
     gradeToClassName(grade) {
         const normalized = String(grade || '').replace('.0', '').trim().toLowerCase();
         if (!normalized) return '';
+        const compact = normalized.replace(/[-_\s]/g, '');
+        if (['prek3', 'pk3'].includes(compact)) return 'Pre K3';
+        if (['prek4', 'pk4'].includes(compact)) return 'Pre K4';
         if (normalized.includes('kg') || normalized === 'k') return 'KG';
-        if (normalized === '4' || normalized.includes('4th')) return '4th Grade';
-        if (normalized === '5' || normalized.includes('5th')) return '5th Grade';
-        if (['6', '7', '8'].includes(normalized) || normalized.includes('middle')) return 'Middle School';
-        if (['9', '10', '11', '12'].includes(normalized) || normalized.includes('high')) return 'High School';
+        if (normalized.includes('middle')) return 'Middle School';
+        if (normalized.includes('high')) return 'High School';
+        const n = parseInt(normalized, 10);
+        if (!Number.isNaN(n) && n >= 1 && n <= 12) return this.gradeLabel(String(n));
         return '';
     }
 
@@ -238,18 +263,23 @@ class AttendanceApp {
         const normalized = String(className || '').trim().toLowerCase();
         if (normalized === 'high school') return ['9', '10', '11', '12'];
         if (normalized === 'middle school') return ['6', '7', '8'];
-        if (normalized === '4th grade') return ['4'];
-        if (normalized === '5th grade') return ['5'];
+        if (normalized === 'pre k3' || normalized === 'prek3') return ['Pre K3'];
+        if (normalized === 'pre k4' || normalized === 'prek4') return ['Pre K4'];
         if (normalized === 'kg') return ['KG'];
+        const n = parseInt(normalized, 10);
+        if (!Number.isNaN(n) && n >= 1 && n <= 12) return [String(n)];
         return [];
     }
 
     gradeLabel(grade) {
         const normalized = String(grade || '').trim();
+        const compact = normalized.toLowerCase().replace(/[-_\s]/g, '');
+        if (['prek3', 'pk3'].includes(compact)) return 'Pre K3';
+        if (['prek4', 'pk4'].includes(compact)) return 'Pre K4';
         if (normalized.toUpperCase() === 'KG') return 'KG';
         const n = parseInt(normalized, 10);
         if (Number.isNaN(n)) return normalized;
-        const suffix = n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th';
+        const suffix = (n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({1:'st',2:'nd',3:'rd'}[n % 10] || 'th');
         return `${n}${suffix} Grade`;
     }
 
@@ -259,6 +289,13 @@ class AttendanceApp {
 
     assignmentLabel() {
         const sectionLabel = this.sectionAssignmentLabel();
+        if (this.isRewards) {
+            const suffix = sectionLabel ? ` · ${sectionLabel}` : '';
+            if (this.assignedGrades && this.assignedGrades.length > 0) {
+                return `Rewards · Grades ${this.assignedGrades.join(', ')}${suffix}`;
+            }
+            return `Rewards · All Grades${suffix}`;
+        }
         if (this.isServantUser()) {
             const suffix = sectionLabel ? ` · ${sectionLabel}` : '';
             if (this.assignedGrades && this.assignedGrades.length > 0) {
@@ -280,17 +317,18 @@ class AttendanceApp {
     }
 
     getAvailableSectionsForCurrentRole() {
-        if (this.isServantUser() && this.assignedSections && this.assignedSections.length === 1) {
+        if ((this.isServantUser() || this.isRewards) && this.assignedSections && this.assignedSections.length === 1) {
             return this.assignedSections;
         }
         return ['Boy', 'Girl', 'All'];
     }
 
     async getAvailableGradesForCurrentRole() {
-        if (this.isServantUser()) {
+        if (this.isServantUser() || this.isRewards) {
             if (this.assignedGrades.length > 0) {
                 return this.assignedGrades;
             }
+            if (this.isRewards) return [...ALL_GRADES];
             if (this.userClassName && this.userClassName !== 'all') {
                 const legacyGrades = this.classToGrades(this.userClassName);
                 if (legacyGrades.length > 0) return legacyGrades;
@@ -309,15 +347,12 @@ class AttendanceApp {
             if (grade) gradeSet.add(grade);
         });
         const grades = [...gradeSet].sort((a, b) => {
-            const an = parseInt(a, 10);
-            const bn = parseInt(b, 10);
-            if (Number.isNaN(an) || Number.isNaN(bn)) return a.localeCompare(b);
-            return an - bn;
+            return this.gradeSortValue(a) - this.gradeSortValue(b);
         });
 
         if (grades.length > 0) return grades;
 
-        return ['KG', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+        return [...ALL_GRADES];
     }
 
     updateUIForRole() {
@@ -331,6 +366,18 @@ class AttendanceApp {
         });
         document.querySelectorAll('[data-role-student-manager]').forEach(el => {
             el.style.display = this.canManageStudentData() ? '' : 'none';
+        });
+
+        const navVisibility = {
+            'nav-home': !this.isRewards,
+            'nav-attendance': !this.isRewards,
+            'nav-points': true,
+            'nav-eftikad': !this.isRewards,
+            'nav-more': !this.isRewards
+        };
+        Object.entries(navVisibility).forEach(([id, visible]) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = visible ? '' : 'none';
         });
 
         // Update username display
@@ -809,6 +856,10 @@ class AttendanceApp {
     }
 
     showHome() {
+        if (this.isRewards) {
+            this.showPoints();
+            return;
+        }
         this.showView('home');
         this.updateStats();
         this.loadBirthdays();
@@ -917,28 +968,55 @@ class AttendanceApp {
     async showAdminReports() {
         if (!this.canSeeReports()) return;
         this.showView('admin-reports');
+        this.populateMainReportGradeFilter();
+        this.setDefaultMainReportRange();
         await this.loadAdminReports();
     }
 
+    populateMainReportGradeFilter() {
+        const select = document.getElementById('main-report-grade');
+        if (!select || select.dataset.ready === '1') return;
+        select.innerHTML = '<option value="">All Grades</option>' +
+            ALL_GRADES.map(grade => `<option value="${this.gradeLabel(grade)}">${this.gradeLabel(grade)}</option>`).join('');
+        select.dataset.ready = '1';
+    }
+
+    setDefaultMainReportRange() {
+        const fromEl = document.getElementById('main-report-date-from');
+        const toEl = document.getElementById('main-report-date-to');
+        if (!fromEl || !toEl || fromEl.value || toEl.value) return;
+        const today = new Date();
+        const prior = new Date(today);
+        prior.setMonth(prior.getMonth() - 1);
+        fromEl.value = prior.toISOString().split('T')[0];
+        toEl.value = today.toISOString().split('T')[0];
+    }
+
     async loadAdminReports() {
-        const dateVal = document.getElementById('main-report-date').value;
+        const dateFrom = document.getElementById('main-report-date-from').value;
+        const dateTo = document.getElementById('main-report-date-to').value;
+        const gradeVal = document.getElementById('main-report-grade')?.value || '';
         const typeVal = document.getElementById('main-report-type').value;
         const listEl = document.getElementById('main-reports-list');
         listEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--on-surface-variant);"><span class="material-icons-round spin">sync</span></div>';
 
         try {
-            let url = '/api/admin/servant-reports?';
-            if (dateVal) url += `date=${dateVal}&`;
-            if (typeVal) url += `type=${typeVal}`;
-            const res = await fetch(url);
+            const params = new URLSearchParams();
+            if (dateFrom) params.set('from', dateFrom);
+            if (dateTo) params.set('to', dateTo);
+            if (typeVal) params.set('type', typeVal);
+            if (gradeVal) params.set('grade', gradeVal);
+            const res = await fetch(`/api/admin/servant-reports?${params.toString()}`);
             const data = await res.json();
             const reports = data.reports || [];
+            const gradeSummary = data.grade_summary || [];
             
             // Generate stats
             const attendance = reports.filter(r => r.report_type === 'attendance').length;
             const eftikad = reports.filter(r => r.report_type === 'eftikad').length;
             document.getElementById('main-rstat-attendance').textContent = attendance;
             document.getElementById('main-rstat-eftikad').textContent = eftikad;
+            this.renderMainReportGradeSummary(gradeSummary);
 
             // Render list
             if (reports.length === 0) {
@@ -962,10 +1040,10 @@ class AttendanceApp {
                         </button>
                         <div style="display:flex; align-items:center; margin-bottom:8px;">
                             ${unreadDot}
-                            <span style="font-weight:bold; font-size:1.05rem; color:var(--on-surface);">${r.servant_username}</span>
+                            <span style="font-weight:bold; font-size:1.05rem; color:var(--on-surface);">${typeLabel}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; width:100%; border-bottom:1px solid var(--outline-variant); padding-bottom:8px; margin-bottom:8px;">
-                            <span style="color:${typeColor}; font-weight:700; font-size:0.85rem;">${typeIcon} ${typeLabel}</span>
+                            <span style="color:${typeColor}; font-weight:700; font-size:0.85rem;">${typeIcon} Submitted by ${r.servant_username}</span>
                             <span style="color:var(--on-surface-variant); font-size:0.8rem;">${r.date}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; width:100%; font-size:0.9rem;">
@@ -984,6 +1062,31 @@ class AttendanceApp {
         } catch (e) {
             listEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger);">Error loading reports.</div>';
         }
+    }
+
+    renderMainReportGradeSummary(rows) {
+        const el = document.getElementById('main-report-grade-summary');
+        if (!el) return;
+        if (!rows.length) {
+            el.innerHTML = '<div style="padding:14px;border-radius:12px;background:var(--surface-container-high);color:var(--on-surface-variant);text-align:center;">No grade data for this range.</div>';
+            return;
+        }
+        el.innerHTML = rows.map(row => `
+            <div style="background:var(--surface-container-high);border-radius:14px;padding:12px;border:1px solid var(--outline-variant);">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+                    <div style="font-weight:800;color:var(--on-surface);">${row.grade_label || row.grade || 'Grade'}</div>
+                    <div style="font-size:0.78rem;color:var(--on-surface-variant);">${row.total_students || 0} students</div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:0.78rem;">
+                    <div><b>${row.present_students || 0}</b><br><span style="color:var(--success);">Present</span></div>
+                    <div><b>${row.absent_students || 0}</b><br><span style="color:var(--danger);">Absent</span></div>
+                    <div><b>${row.reward_points || 0}</b><br><span style="color:var(--primary);">Reward Pts</span></div>
+                    <div><b>${row.rewarded_students || 0}</b><br><span style="color:var(--on-surface-variant);">Rewarded</span></div>
+                    <div><b>${row.eftikad_visits || 0}</b><br><span style="color:var(--gold);">Eftikad</span></div>
+                    <div><b>${row.attendance_records || 0}</b><br><span style="color:var(--on-surface-variant);">Records</span></div>
+                </div>
+            </div>
+        `).join('');
     }
 
     async deleteAdminReport(id) {
@@ -1013,12 +1116,16 @@ class AttendanceApp {
     }
 
     downloadAdminReports() {
-        const dateVal = document.getElementById('main-report-date').value;
+        const dateFrom = document.getElementById('main-report-date-from').value;
+        const dateTo = document.getElementById('main-report-date-to').value;
+        const gradeVal = document.getElementById('main-report-grade')?.value || '';
         const typeVal = document.getElementById('main-report-type').value;
-        let url = '/api/admin/servant-reports/download?';
-        if (dateVal) url += `date=${dateVal}&`;
-        if (typeVal) url += `type=${typeVal}`;
-        window.open(url, '_blank');
+        const params = new URLSearchParams();
+        if (dateFrom) params.set('from', dateFrom);
+        if (dateTo) params.set('to', dateTo);
+        if (gradeVal) params.set('grade', gradeVal);
+        if (typeVal) params.set('type', typeVal);
+        window.open(`/api/admin/servant-reports/download?${params.toString()}`, '_blank');
         this.showToast('Downloading Excel...', 'info');
     }
 
@@ -1080,6 +1187,10 @@ class AttendanceApp {
     }
 
     async showTakeAttendance() {
+        if (this.isRewards) {
+            this.showPoints();
+            return;
+        }
         this.showSelectFilter('attendance');
     }
 
@@ -1218,9 +1329,9 @@ class AttendanceApp {
 
         // Apply Grade/Gender filters
         if (this.filterGrades.length > 0) {
+            const selectedGrades = new Set(this.filterGrades.map(g => this.gradeKey(g)));
             students = students.filter(s => {
-                const grade = String(s.grade || '').replace('.0', '');
-                return this.filterGrades.includes(grade);
+                return selectedGrades.has(this.gradeKey(s.grade));
             });
         }
         if (this.filterGender && this.filterGender !== 'All') {
@@ -1619,9 +1730,9 @@ class AttendanceApp {
 
         // Apply Grade/Gender filters
         if (this.filterGrades.length > 0) {
+            const selectedGrades = new Set(this.filterGrades.map(g => this.gradeKey(g)));
             students = students.filter(s => {
-                const grade = String(s.grade || '').replace('.0', '');
-                return this.filterGrades.includes(grade);
+                return selectedGrades.has(this.gradeKey(s.grade));
             });
         }
         if (this.filterGender && this.filterGender !== 'All') {
@@ -2801,6 +2912,10 @@ class AttendanceApp {
     }
 
     showMore() {
+        if (this.isRewards) {
+            this.showPoints();
+            return;
+        }
         this.showView('more');
         this.setNavActive('nav-more');
         const canManageStudentData = this.canManageStudentData();
@@ -2916,10 +3031,11 @@ class AttendanceApp {
         const row = this._pointsRows?.[studentKey] || {};
         const studentId = row._serverPointsId || row.id || null;
         this._currentPointsStudentId = row._serverPointsId || null;
+        this._currentPointsStudentKey = studentKey;
         document.getElementById('points-detail-name').textContent = name;
         const manualControls = document.getElementById('points-manual-controls');
         if (manualControls) {
-            manualControls.style.display = this.canManageStudentData() ? 'flex' : 'none';
+            manualControls.style.display = this.canManagePoints() ? 'flex' : 'none';
         }
         let data = { total_points: row.points || 0, history: [] };
         if (studentId && row._serverPointsId !== null) {
@@ -2954,7 +3070,7 @@ class AttendanceApp {
             this.showToast(`${pts>0?'+':''}${pts} points saved!`, 'success');
             document.getElementById('points-manual-amount').value = '';
             document.getElementById('points-manual-reason').value = '';
-            await this.showStudentPoints(sid, document.getElementById('points-detail-name').textContent);
+            await this.showStudentPoints(this._currentPointsStudentKey || sid, document.getElementById('points-detail-name').textContent);
             await this.loadPoints();
         }
     }
@@ -2981,6 +3097,10 @@ class AttendanceApp {
 
     // ---- EFTIKAD ----
     async showEftikad() {
+        if (this.isRewards) {
+            this.showPoints();
+            return;
+        }
         this.showView('eftikad');
         this.setNavActive('nav-eftikad');
         const today = new Date().toISOString().split('T')[0];
@@ -3108,7 +3228,12 @@ class AttendanceApp {
     }
 
     // ---- BIBLE TRACKING ----
-    showBible() { this.showView('bible'); this._populateServantFilters(['bible-servant-filter']); this.loadBibleTracking(); }
+    showBible() {
+        if (this.isRewards) { this.showPoints(); return; }
+        this.showView('bible');
+        this._populateServantFilters(['bible-servant-filter']);
+        this.loadBibleTracking();
+    }
 
     async loadBibleTracking() {
         const servant = document.getElementById('bible-servant-filter').value;
@@ -3163,6 +3288,7 @@ class AttendanceApp {
 
     // ---- ANNOUNCEMENTS ----
     showAnnouncements() {
+        if (this.isRewards) { this.showPoints(); return; }
         this.showView('announcements');
         const waForm = document.getElementById('student-whatsapp-form');
         if (waForm) waForm.style.display = this.canManageStudentData() ? '' : 'none';
@@ -3251,7 +3377,11 @@ class AttendanceApp {
     }
 
     // ---- BIRTHDAYS ----
-    showBirthdays() { this.showView('birthdays'); this.loadBirthdays(); }
+    showBirthdays() {
+        if (this.isRewards) { this.showPoints(); return; }
+        this.showView('birthdays');
+        this.loadBirthdays();
+    }
 
     sendBirthdayWhatsApp(studentId) {
         const student = this._birthdayStudents?.[studentId];
@@ -3298,30 +3428,38 @@ class AttendanceApp {
 
     // ---- CHARTS ----
     showCharts() {
+        if (this.isRewards) { this.showPoints(); return; }
         this.showView('charts');
         this._populateServantFilters(['chart-servant-filter']);
-        const curYear = new Date().getFullYear();
-        const sel = document.getElementById('chart-year-filter');
-        if (sel.options.length <= 1) {
-            for (let y = curYear; y >= curYear-4; y--) {
-                const o = document.createElement('option'); o.value = y; o.textContent = y; sel.appendChild(o);
-            }
-        }
+        const today = new Date().toISOString().split('T')[0];
+        const fromEl = document.getElementById('chart-date-from');
+        const toEl = document.getElementById('chart-date-to');
+        if (toEl && !toEl.value) toEl.value = today;
+        if (fromEl && !fromEl.value) fromEl.value = new Date(Date.now() - 180*24*60*60*1000).toISOString().split('T')[0];
         this.loadCharts();
     }
 
     async loadCharts() {
         const servant = document.getElementById('chart-servant-filter').value;
-        const year = document.getElementById('chart-year-filter').value;
+        const dateFrom = document.getElementById('chart-date-from').value;
+        const dateTo = document.getElementById('chart-date-to').value;
         let url = '/api/charts/attendance?';
         if (servant && servant !== 'all') url += `servant=${encodeURIComponent(servant)}&`;
-        if (year) url += `year=${year}`;
+        if (dateFrom) url += `from=${dateFrom}&`;
+        if (dateTo) url += `to=${dateTo}`;
         const res = await fetch(url);
         const data = await res.json();
         const stats = data.stats || [];
 
         const container = document.getElementById('chart-stats-list');
-        if (stats.length === 0) { container.innerHTML = `<div class="empty-state"><span class="material-icons-round">bar_chart</span><p>No data yet</p></div>`; return; }
+        if (stats.length === 0) {
+            if (this.attendanceChart) {
+                this.attendanceChart.destroy();
+                this.attendanceChart = null;
+            }
+            container.innerHTML = `<div class="empty-state"><span class="material-icons-round">bar_chart</span><p>No data yet</p></div>`;
+            return;
+        }
 
         // Build chart by grade
         const months = [...new Set(stats.map(s => s.month))].sort();
@@ -3378,33 +3516,37 @@ class AttendanceApp {
 
     gradeSortValue(grade) {
         const key = String(grade || '').replace('.0', '').trim().toLowerCase();
+        const compact = key.replace(/[-_\s]/g, '');
+        if (compact === 'prek3' || compact === 'pk3') return -3;
+        if (compact === 'prek4' || compact === 'pk4') return -2;
         if (key === 'kg' || key === 'k' || key === '0') return 0;
         const n = parseInt(key, 10);
         return Number.isFinite(n) ? n : 99;
     }
 
-    // ---- HELPER: populate servant filters ----
+    // ---- HELPER: populate grade filters ----
     async _populateServantFilters(ids) {
-        const res = await fetch('/api/servants');
-        const data = await res.json();
-        const servants = data.servants || [];
-        const classNames = ['High School', 'Middle School', '4th Grade', '5th Grade', 'KG'];
-        const options = [...new Set([...classNames, ...servants])];
+        const options = [...ALL_GRADES];
         ids.forEach(id => {
             const sel = document.getElementById(id);
             if (!sel) return;
             const cur = sel.value;
-            sel.innerHTML = '<option value="all">All Classes</option>' + options.map(s => `<option value="${s}">${s}</option>`).join('');
+            sel.innerHTML = '<option value="all">All Grades</option>' +
+                options.map(grade => `<option value="${this.gradeLabel(grade)}">${this.gradeLabel(grade)}</option>`).join('');
             sel.value = cur || 'all';
-            // If servant (not admin), lock to their name
             if (!this.canSeeAllClasses() && this.username) {
                 if (this.assignedGrades && this.assignedGrades.length > 0) {
-                    sel.innerHTML = `<option value="all">My Grades (${this.assignedGrades.join(', ')})</option>`;
+                    sel.innerHTML = `<option value="all">My Grades (${this.assignedGrades.map(g => this.gradeLabel(g)).join(', ')})</option>`;
                     sel.value = 'all';
+                    sel.disabled = true;
+                } else if (this.isRewards) {
+                    sel.innerHTML = '<option value="all">All Grades</option>';
+                    sel.value = 'all';
+                    sel.disabled = true;
                 } else {
-                    sel.value = this.userClassName && this.userClassName !== 'all' ? this.userClassName : this.username;
+                    sel.value = this.userClassName && this.userClassName !== 'all' ? this.userClassName : 'all';
+                    sel.disabled = true;
                 }
-                sel.disabled = true;
             } else {
                 sel.disabled = false;
             }

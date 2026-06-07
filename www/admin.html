@@ -624,6 +624,12 @@
             border: 1px solid rgba(91, 142, 240, 0.2);
         }
 
+        .role-badge.rewards {
+            background: rgba(168, 118, 255, 0.14);
+            color: #B48CFF;
+            border: 1px solid rgba(168, 118, 255, 0.28);
+        }
+
         .actions-cell {
             display: flex;
             align-items: center;
@@ -1943,7 +1949,7 @@
                 <div class="stat-card">
                     <div class="stat-icon green"><span class="material-icons-round">person</span></div>
                     <div class="stat-value" id="stat-users">—</div>
-                    <div class="stat-label">Servant / Sub-admin Accounts</div>
+                    <div class="stat-label">Servant / Sub-admin / Rewards</div>
                 </div>
             </div>
 
@@ -2010,6 +2016,18 @@
                             <li>Submit Eftikad / Visitation reports</li>
                             <li>View birthdays and announcements</li>
                             <li>Cannot manage users or all classes</li>
+                        </ul>
+                    </div>
+                    <div
+                        style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:20px;">
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                            <span class="role-badge rewards">Rewards</span>
+                        </div>
+                        <ul style="font-size:0.85rem; color:var(--text-dim); padding-left:18px; line-height:1.8;">
+                            <li>Points page access only</li>
+                            <li>Can add or deduct rewards points</li>
+                            <li>Can be limited to selected grades and sections</li>
+                            <li>Cannot take attendance, manage students, or use admin tools</li>
                         </ul>
                     </div>
                 </div>
@@ -2084,19 +2102,25 @@
                                 <span class="material-icons-round">admin_panel_settings</span>
                                 <select id="reg-role" class="admin-input" required onchange="handleRoleClassOptions()">
                                     <option value="user">User (Servant)</option>
+                                    <option value="rewards">Rewards Team (Points Only)</option>
                                     <option value="sub_admin">Sub-admin (All Classes)</option>
                                     <option value="admin">Admin (Full Access)</option>
                                 </select>
                             </div>
                         </div>
                         <div class="admin-input-group form-full" id="reg-grades-group">
-                            <label>Manual Grade Assignment *</label>
+                            <label>Manual Grade Assignment</label>
                             <p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">
-                                For User (Servant), choose one or more grades. Example: 10, 11, 12.
+                                For User (Servant), choose one or more grades. For Rewards Team, grades are optional.
                             </p>
                             <div id="reg-grades"
                                 style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;">
+                                <label><input type="checkbox" value="Pre K3"> Pre K3</label>
+                                <label><input type="checkbox" value="Pre K4"> Pre K4</label>
                                 <label><input type="checkbox" value="KG"> KG</label>
+                                <label><input type="checkbox" value="1"> 1</label>
+                                <label><input type="checkbox" value="2"> 2</label>
+                                <label><input type="checkbox" value="3"> 3</label>
                                 <label><input type="checkbox" value="4"> 4</label>
                                 <label><input type="checkbox" value="5"> 5</label>
                                 <label><input type="checkbox" value="6"> 6</label>
@@ -2111,7 +2135,7 @@
                         <div class="admin-input-group form-full" id="reg-sections-group">
                             <label>Manual Section Assignment</label>
                             <p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px;">
-                                Optional for User (Servant). Choose Boys, Girls, or both.
+                                Optional for User (Servant) and Rewards Team. Choose Boys, Girls, or both.
                             </p>
                             <div id="reg-sections"
                                 style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;">
@@ -2126,9 +2150,21 @@
                                 <select id="reg-class" class="admin-input" required>
                                     <option value="Middle School">Middle School</option>
                                     <option value="High School">High School</option>
+                                    <option value="Pre K3">Pre K3</option>
+                                    <option value="Pre K4">Pre K4</option>
+                                    <option value="KG">KG</option>
+                                    <option value="1st Grade">1st Grade</option>
+                                    <option value="2nd Grade">2nd Grade</option>
+                                    <option value="3rd Grade">3rd Grade</option>
                                     <option value="4th Grade">4th Grade</option>
                                     <option value="5th Grade">5th Grade</option>
-                                    <option value="KG">KG</option>
+                                    <option value="6th Grade">6th Grade</option>
+                                    <option value="7th Grade">7th Grade</option>
+                                    <option value="8th Grade">8th Grade</option>
+                                    <option value="9th Grade">9th Grade</option>
+                                    <option value="10th Grade">10th Grade</option>
+                                    <option value="11th Grade">11th Grade</option>
+                                    <option value="12th Grade">12th Grade</option>
                                 </select>
                             </div>
                         </div>
@@ -2202,6 +2238,15 @@
                         <option value="eftikad">🏠 Eftikad Only</option>
                     </select>
                 </div>
+                <div
+                    style="display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px;">
+                    <span class="material-icons-round"
+                        style="color:var(--text-muted); font-size:18px;">school</span>
+                    <select id="report-grade-filter" class="admin-input"
+                        style="border:none; background:none; padding:0; width:160px;" onchange="loadReports()">
+                        <option value="">All Grades</option>
+                    </select>
+                </div>
                 <button class="btn btn-success" onclick="loadReports()">
                     <span class="material-icons-round">refresh</span> Refresh
                 </button>
@@ -2231,6 +2276,18 @@
                     <div class="stat-icon red"><span class="material-icons-round">notifications</span></div>
                     <div class="stat-value" id="rstat-unread">—</div>
                     <div class="stat-label">Unread Notifications</div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom:24px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="material-icons-round">school</span>
+                        Grade Summary
+                    </div>
+                </div>
+                <div id="report-grade-summary" class="reports-list">
+                    <div style="padding:24px;text-align:center;color:var(--text-muted);">Choose a date range to load grade data.</div>
                 </div>
             </div>
 
@@ -2337,9 +2394,11 @@
         let pendingDeleteId = null;
         let pendingPwId = null;
         let allUsers = [];
-        const classOptions = ['all', 'Middle School', 'High School', '4th Grade', '5th Grade', 'KG'];
-        const servantClassOptions = classOptions.filter(cls => cls !== 'all');
-        const gradeOptions = ['KG', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+        let allReportGradeSummary = [];
+        const gradeOptions = ['Pre K3', 'Pre K4', 'KG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+        const gradeClassOptions = gradeOptions.map(gradeOptionToClassName);
+        const classOptions = ['all', 'Middle School', 'High School', ...gradeClassOptions];
+        const servantClassOptions = gradeClassOptions;
 
         // ===== AUTH =====
         async function authenticate(e) {
@@ -2417,6 +2476,7 @@
             }
             if (name === 'reports') {
                 setDefaultReportRange();
+                populateReportGradeFilter();
                 loadReports();
             }
 
@@ -2435,6 +2495,16 @@
         // ===== SERVANT REPORTS =====
         let allReports = [];
 
+        function populateReportGradeFilter() {
+            const select = document.getElementById('report-grade-filter');
+            if (!select || select.dataset.ready === '1') return;
+            select.innerHTML = '<option value="">All Grades</option>' + gradeOptions.map(grade => {
+                const label = gradeOptionToClassName(grade);
+                return `<option value="${label}">${label}</option>`;
+            }).join('');
+            select.dataset.ready = '1';
+        }
+
         function setDefaultReportRange() {
             const fromEl = document.getElementById('report-date-from-filter');
             const toEl = document.getElementById('report-date-to-filter');
@@ -2450,24 +2520,76 @@
             const dateFrom = document.getElementById('report-date-from-filter').value;
             const dateTo = document.getElementById('report-date-to-filter').value;
             const typeVal = document.getElementById('report-type-filter').value;
+            const gradeVal = document.getElementById('report-grade-filter')?.value || '';
             const container = document.getElementById('reports-table-container');
             container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><span class="material-icons-round spin">sync</span></div>';
 
             try {
-                let url = '/api/admin/servant-reports?';
-                if (dateFrom) url += `from=${dateFrom}&`;
-                if (dateTo) url += `to=${dateTo}&`;
-                if (typeVal) url += `type=${typeVal}`;
-                const res = await fetch(url);
+                const params = new URLSearchParams();
+                if (dateFrom) params.set('from', dateFrom);
+                if (dateTo) params.set('to', dateTo);
+                if (typeVal) params.set('type', typeVal);
+                if (gradeVal) params.set('grade', gradeVal);
+                const res = await fetch(`/api/admin/servant-reports?${params.toString()}`);
                 const data = await res.json();
                 allReports = data.reports || [];
+                allReportGradeSummary = data.grade_summary || [];
                 renderReportsTable();
                 renderReportStats();
+                renderReportGradeSummary();
                 updateReportsBadge();
             } catch (e) {
                 showToast('Failed to load reports', 'error');
                 container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger);">Error loading reports.</div>';
             }
+        }
+
+        function renderReportGradeSummary() {
+            const el = document.getElementById('report-grade-summary');
+            if (!el) return;
+            if (!allReportGradeSummary.length) {
+                el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);">No grade data for this range.</div>';
+                return;
+            }
+            el.innerHTML = allReportGradeSummary.map(row => `
+                <article class="report-card">
+                    <div class="report-card-header">
+                        <div class="report-icon attendance">
+                            <span class="material-icons-round">school</span>
+                        </div>
+                        <div>
+                            <div class="report-title">${escHtml(row.grade_label || row.grade || 'Grade')}</div>
+                            <div class="report-meta">${row.total_students || 0} total students</div>
+                        </div>
+                    </div>
+                    <div class="report-stats">
+                        <div class="report-stat">
+                            <div class="report-stat-value">${row.attendance_records || 0}</div>
+                            <div class="report-stat-label">Attendance Records</div>
+                        </div>
+                        <div class="report-stat">
+                            <div class="report-stat-value present">${row.present_students || 0}</div>
+                            <div class="report-stat-label">Present Students</div>
+                        </div>
+                        <div class="report-stat">
+                            <div class="report-stat-value absent">${row.absent_students || 0}</div>
+                            <div class="report-stat-label">Absent Students</div>
+                        </div>
+                        <div class="report-stat">
+                            <div class="report-stat-value">${row.rewarded_students || 0}</div>
+                            <div class="report-stat-label">Rewarded Students</div>
+                        </div>
+                        <div class="report-stat">
+                            <div class="report-stat-value">${row.reward_points || 0}</div>
+                            <div class="report-stat-label">Reward Points</div>
+                        </div>
+                        <div class="report-stat">
+                            <div class="report-stat-value">${row.eftikad_visits || 0}</div>
+                            <div class="report-stat-label">Eftikad Visits</div>
+                        </div>
+                    </div>
+                </article>
+            `).join('');
         }
 
         function renderReportStats() {
@@ -2663,6 +2785,55 @@
             `;
         }
 
+        function renderReportsTable() {
+            const el = document.getElementById('reports-table-container');
+            if (allReports.length === 0) {
+                el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);">No reports found for this range.</div>';
+                return;
+            }
+
+            el.innerHTML = `
+                <div class="reports-list">
+                    ${allReports.map(r => {
+                        const isAttendance = r.report_type === 'attendance';
+                        const icon = isAttendance ? 'assignment_turned_in' : 'home';
+                        const typeLabel = isAttendance ? 'Attendance' : 'Eftikad';
+                        return `
+                            <article class="report-card ${r.is_read === 0 ? 'unread' : ''}">
+                                ${r.is_read === 0 ? '<span class="report-dot"></span>' : ''}
+                                <button class="report-delete" onclick="deleteReport(${r.id})" title="Delete report">
+                                    <span class="material-icons-round" style="font-size:18px;">delete</span>
+                                </button>
+                                <div class="report-card-header">
+                                    <div class="report-icon ${isAttendance ? 'attendance' : 'eftikad'}">
+                                        <span class="material-icons-round">${icon}</span>
+                                    </div>
+                                    <div>
+                                        <div class="report-title">${typeLabel}</div>
+                                        <div class="report-meta">${r.date} · Submitted by ${escHtml(r.servant_username || 'Unknown')}</div>
+                                        <div class="report-meta">Saved ${formatDate(r.submitted_at)}</div>
+                                    </div>
+                                </div>
+                                <div class="report-stats">
+                                    <div class="report-stat">
+                                        <div class="report-stat-value">${r.total_count}</div>
+                                        <div class="report-stat-label">Total</div>
+                                    </div>
+                                    <div class="report-stat">
+                                        <div class="report-stat-value present">${r.present_count}</div>
+                                        <div class="report-stat-label">${isAttendance ? 'Present' : 'Visited'}</div>
+                                    </div>
+                                    <div class="report-stat">
+                                        <div class="report-stat-value absent">${r.absent_count}</div>
+                                        <div class="report-stat-label">Absent</div>
+                                    </div>
+                                </div>
+                            </article>`;
+                    }).join('')}
+                </div>
+            `;
+        }
+
         async function markAllRead() {
             try {
                 await fetch('/api/admin/servant-reports/mark-read', { method: 'POST' });
@@ -2677,11 +2848,13 @@
             const dateFrom = document.getElementById('report-date-from-filter').value;
             const dateTo = document.getElementById('report-date-to-filter').value;
             const typeVal = document.getElementById('report-type-filter').value;
-            let url = '/api/admin/servant-reports/download?';
-            if (dateFrom) url += `from=${dateFrom}&`;
-            if (dateTo) url += `to=${dateTo}&`;
-            if (typeVal) url += `type=${typeVal}`;
-            window.open(url, '_blank');
+            const gradeVal = document.getElementById('report-grade-filter')?.value || '';
+            const params = new URLSearchParams();
+            if (dateFrom) params.set('from', dateFrom);
+            if (dateTo) params.set('to', dateTo);
+            if (typeVal) params.set('type', typeVal);
+            if (gradeVal) params.set('grade', gradeVal);
+            window.open(`/api/admin/servant-reports/download?${params.toString()}`, '_blank');
             showToast('Downloading report...', 'info');
         }
 
@@ -2849,29 +3022,49 @@
         }
 
         function studentClassName(student) {
-            if (student.class_name && student.class_name !== 'all') return student.class_name;
-            return gradeToClassName(student.grade);
+            return gradeToClassName(student.grade || student.class_name);
         }
 
         function gradeToClassName(grade) {
+            return gradeOptionToClassName(grade);
+        }
+
+        function gradeOptionToClassName(grade) {
             const text = String(grade ?? '').trim();
             if (!text) return 'Not assigned';
-            if (text.toLowerCase() === 'kg' || text === '0') return 'KG';
+            const compact = text.toLowerCase().replace(/[-_\s]/g, '');
+            if (compact === 'prek3' || compact === 'pk3') return 'Pre K3';
+            if (compact === 'prek4' || compact === 'pk4') return 'Pre K4';
+            if (compact === 'kg' || compact === 'k' || text === '0') return 'KG';
+            if (text === 'Middle School' || text === 'High School') return text;
+            const existingGrade = text.match(/^(\d+)(st|nd|rd|th)\s+Grade$/i);
+            if (existingGrade) return `${parseInt(existingGrade[1], 10)}${suffixForGrade(parseInt(existingGrade[1], 10))} Grade`;
             const n = parseInt(text, 10);
             if (!Number.isFinite(n)) return text;
-            if (n >= 9) return 'High School';
-            if (n >= 6) return 'Middle School';
-            const suffix = n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th';
-            return `${n}${suffix} Grade`;
+            return `${n}${suffixForGrade(n)} Grade`;
+        }
+
+        function suffixForGrade(n) {
+            if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+            return { 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th';
         }
 
         function classSortValue(className) {
+            if (className === 'Pre K3') return -3;
+            if (className === 'Pre K4') return -2;
             if (className === 'KG') return 0;
             if (className.includes('1st')) return 1;
             if (className.includes('2nd')) return 2;
             if (className.includes('3rd')) return 3;
             if (className.includes('4th')) return 4;
             if (className.includes('5th')) return 5;
+            if (className.includes('6th')) return 6;
+            if (className.includes('7th')) return 7;
+            if (className.includes('8th')) return 8;
+            if (className.includes('9th')) return 9;
+            if (className.includes('10th')) return 10;
+            if (className.includes('11th')) return 11;
+            if (className.includes('12th')) return 12;
             if (className === 'Middle School') return 6;
             if (className === 'High School') return 9;
             return 99;
@@ -2906,9 +3099,10 @@
             const admins = allUsers.filter(u => u.role === 'admin').length;
             const subAdmins = allUsers.filter(u => u.role === 'sub_admin').length;
             const users = allUsers.filter(u => u.role === 'user').length;
+            const rewards = allUsers.filter(u => u.role === 'rewards').length;
             document.getElementById('stat-total').textContent = allUsers.length;
             document.getElementById('stat-admins').textContent = admins;
-            document.getElementById('stat-users').textContent = users + subAdmins;
+            document.getElementById('stat-users').textContent = users + subAdmins + rewards;
         }
 
         function renderOverviewUsers() {
@@ -2979,6 +3173,7 @@
                             <td data-label="Actions">
                                 <div class="actions-cell">
                                     ${renderSectionSelect(u)}
+                                    ${renderGradeAssignButton(u)}
                                     <button class="btn btn-warning btn-sm" onclick="openPwModal(${u.id},'${escHtml(u.username)}')">
                                         <span class="material-icons-round" style="font-size:14px;">key</span>
                                         Password
@@ -3004,10 +3199,12 @@
             const confirm = document.getElementById('reg-confirm').value;
             const role = document.getElementById('reg-role').value;
             const classSelect = document.getElementById('reg-class');
-            const class_name = classSelect.options[classSelect.selectedIndex]?.value || '';
+            const class_name = ['user', 'rewards'].includes(role)
+                ? 'all'
+                : (classSelect.options[classSelect.selectedIndex]?.value || '');
             const assigned_grades = [...document.querySelectorAll('#reg-grades input:checked')].map(input => input.value);
             let assigned_sections = [...document.querySelectorAll('#reg-sections input:checked')].map(input => input.value);
-            if (role === 'user' && assigned_sections.length === 0) assigned_sections = ['Boy', 'Girl'];
+            if (['user', 'rewards'].includes(role) && assigned_sections.length === 0) assigned_sections = ['Boy', 'Girl'];
             const btn = document.getElementById('register-btn');
 
             if (password !== confirm) {
@@ -3043,8 +3240,10 @@
 
                 if (data.success) {
                     const savedClass = data.class_name || class_name;
-                    const sectionText = role === 'user' ? ` (${formatAssignedSections(assigned_sections)})` : '';
-                    const assignmentText = role === 'user' ? `grades ${assigned_grades.join(', ')}${sectionText}` : formatClassName(savedClass);
+                    const isGradeScoped = ['user', 'rewards'].includes(role);
+                    const sectionText = isGradeScoped ? ` (${formatAssignedSections(assigned_sections)})` : '';
+                    const gradeText = assigned_grades.length ? `grades ${assigned_grades.join(', ')}` : 'all grades';
+                    const assignmentText = isGradeScoped ? `${gradeText}${sectionText}` : formatClassName(savedClass);
                     showToast(`Account "${username}" created for ${assignmentText}`, 'success');
                     document.getElementById('register-form').reset();
                     document.querySelectorAll('#reg-grades input').forEach(input => input.checked = false);
@@ -3064,7 +3263,7 @@
         }
 
         function getClassOptionsForRole(role) {
-            return role === 'user' ? servantClassOptions : classOptions;
+            return ['user', 'rewards'].includes(role) ? ['all'] : classOptions;
         }
 
         function getUserClassName(user) {
@@ -3088,10 +3287,13 @@
         }
 
         function renderAssignedClassText(user) {
-            if (user.role === 'user') {
+            if (user.role === 'user' || user.role === 'rewards') {
                 const grades = getUserAssignedGrades(user);
                 const sections = getUserAssignedSections(user);
-                return grades.length ? `Grades ${grades.map(escHtml).join(', ')} · ${escHtml(formatAssignedSections(sections))}` : '<span style="color:var(--danger);">No grades assigned</span>';
+                if (grades.length) return `Grades ${grades.map(escHtml).join(', ')} · ${escHtml(formatAssignedSections(sections))}`;
+                return user.role === 'rewards'
+                    ? `All Grades · ${escHtml(formatAssignedSections(sections))}`
+                    : '<span style="color:var(--danger);">No grades assigned</span>';
             }
             const current = getUserClassName(user);
             if (user.role === 'sub_admin' && current === 'all') {
@@ -3117,7 +3319,7 @@
         }
 
         function renderSectionSelect(user) {
-            if (user.role !== 'user') return '';
+            if (!['user', 'rewards'].includes(user.role)) return '';
             const sections = getUserAssignedSections(user);
             const current = sections.length === 1 ? sections[0] : 'Both';
             return `
@@ -3128,6 +3330,16 @@
                     <option value="Boy" ${current === 'Boy' ? 'selected' : ''}>Boys</option>
                     <option value="Girl" ${current === 'Girl' ? 'selected' : ''}>Girls</option>
                 </select>
+            `;
+        }
+
+        function renderGradeAssignButton(user) {
+            if (!['user', 'rewards'].includes(user.role)) return '';
+            return `
+                <button class="btn btn-primary btn-sm" onclick="editUserGrades(${user.id})" title="Assign grades">
+                    <span class="material-icons-round" style="font-size:14px;">school</span>
+                    Grades
+                </button>
             `;
         }
 
@@ -3147,7 +3359,7 @@
             `).join('');
             classEl.value = options.includes(previous) ? previous : options[0];
 
-            if (roleEl.value === 'user') {
+            if (roleEl.value === 'user' || roleEl.value === 'rewards') {
                 if (gradesGroup) gradesGroup.style.display = '';
                 if (sectionsGroup) sectionsGroup.style.display = '';
                 if (!document.querySelector('#reg-sections input:checked')) {
@@ -3156,6 +3368,7 @@
                 if (classGroup) classGroup.style.opacity = '0.45';
                 classEl.disabled = true;
                 classEl.value = 'all';
+                if (classLabel) classLabel.textContent = roleEl.value === 'rewards' ? 'Points Scope' : 'Access Scope';
             } else {
                 classEl.disabled = false;
                 if (classGroup) classGroup.style.opacity = '';
@@ -3215,6 +3428,35 @@
             } catch (e) {
                 showToast('Server error', 'error');
                 loadAllUsers();
+            }
+        }
+
+        async function editUserGrades(userId) {
+            const user = allUsers.find(u => u.id === userId);
+            if (!user) return;
+            const current = getUserAssignedGrades(user).join(', ');
+            const next = prompt('Enter grades separated by commas. Use Pre K3, Pre K4, KG, or 1-12. Leave blank only for Rewards Team all-grades access.', current);
+            if (next === null) return;
+            const assigned_grades = next.split(',').map(g => g.trim()).filter(Boolean);
+            if (user.role === 'user' && assigned_grades.length === 0) {
+                showToast('Servant users must have at least one grade.', 'error');
+                return;
+            }
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/grades`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ assigned_grades })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Grade assignment updated', 'success');
+                    loadAllUsers();
+                } else {
+                    showToast(data.error || 'Failed to update grades', 'error');
+                }
+            } catch (e) {
+                showToast('Server error', 'error');
             }
         }
 

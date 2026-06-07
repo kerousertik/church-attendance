@@ -21,6 +21,7 @@ CORS(app, supports_credentials=True)
 
 ROLE_LEVELS = {
     'user': 1,
+    'rewards': 1,
     'sub_admin': 2,
     'admin': 3,
 }
@@ -110,6 +111,11 @@ def can_user_access_student(user, student):
         return student_class == user_class.lower() or student_grade in allowed
 
     assigned_grades = _assigned_grade_set(user)
+    if role == 'rewards':
+        if assigned_grades:
+            return student_grade in assigned_grades and _user_section_allows(user, student)
+        return _user_section_allows(user, student)
+
     if assigned_grades:
         return student_grade in assigned_grades and _user_section_allows(user, student)
 
@@ -117,8 +123,7 @@ def can_user_access_student(user, student):
         allowed = {_norm_grade(g) for g in db.class_grade_values(user_class)}
         return (student_class == user_class.lower() or student_grade in allowed) and _user_section_allows(user, student)
 
-    username = user.get('username', '').strip().lower()
-    return (student.get('servant') or '').strip().lower() == username and _user_section_allows(user, student)
+    return False
 
 
 def filter_students_for_user(students, user=None):
@@ -638,7 +643,7 @@ def get_student_points_route(student_id):
 
 
 @app.route('/api/points/add', methods=['POST'])
-@min_role_required('sub_admin')
+@role_required('admin', 'sub_admin', 'rewards')
 def add_points():
     """Manually add or deduct points."""
     data = request.json
@@ -829,6 +834,8 @@ def get_bible_all():
 def get_chart_data():
     servant = request.args.get('servant')
     year = request.args.get('year')
+    date_from = request.args.get('from')
+    date_to = request.args.get('to')
     try:
         user = current_user()
         grades = None
@@ -836,14 +843,14 @@ def get_chart_data():
         servant_filter = servant
         if user and user.get('role') != 'admin':
             sections = user.get('assigned_sections', '')
-            if user.get('role') == 'user':
+            if user.get('role') in ('user', 'rewards'):
                 grades = user.get('assigned_grades', '')
                 servant_filter = None
                 if not grades and user.get('class_name') and user.get('class_name') != 'all':
                     grades = db.class_grade_values(user.get('class_name'))
             elif user.get('class_name') and user.get('class_name') != 'all':
                 servant_filter = user.get('class_name')
-        data = db.get_class_attendance_stats(servant_filter, year, grades, sections)
+        data = db.get_class_attendance_stats(servant_filter, year, grades, sections, date_from, date_to)
         return jsonify({'stats': data})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1074,9 +1081,11 @@ def get_servant_reports():
     date_from = request.args.get('from')
     date_to = request.args.get('to')
     type_filter = request.args.get('type')
+    grade_filter = request.args.get('grade')
     try:
         reports = db.get_servant_reports(date_filter, type_filter, date_from, date_to)
-        return jsonify({'reports': reports})
+        grade_summary = db.get_grade_report_summary(date_from or date_filter, date_to or date_filter, grade_filter)
+        return jsonify({'reports': reports, 'grade_summary': grade_summary})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1125,6 +1134,7 @@ def download_servant_reports():
     date_from = request.args.get('from')
     date_to = request.args.get('to')
     type_filter = request.args.get('type')
+    grade_filter = request.args.get('grade')
 
     try:
         import openpyxl
@@ -1132,6 +1142,7 @@ def download_servant_reports():
         import tempfile
 
         reports = db.get_servant_reports(date_filter, type_filter, date_from, date_to)
+        grade_summary = db.get_grade_report_summary(date_from or date_filter, date_to or date_filter, grade_filter)
 
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1163,6 +1174,37 @@ def download_servant_reports():
                 r.get('notes', ''),
                 r.get('submitted_at', '')
             ])
+
+        summary_ws = wb.create_sheet('Grade Summary')
+        summary_headers = [
+            'Grade', 'Total Students', 'Present Students', 'Absent Students', 'Attendance Records',
+            'Present Records', 'Absent Records', 'Rewarded Students', 'Reward Events',
+            'Reward Points', 'Eftikad Students', 'Eftikad Visits'
+        ]
+        summary_ws.append(summary_headers)
+        for cell in summary_ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+
+        for row in grade_summary:
+            summary_ws.append([
+                row.get('grade_label', ''),
+                row.get('total_students', 0),
+                row.get('present_students', 0),
+                row.get('absent_students', 0),
+                row.get('attendance_records', 0),
+                row.get('present_count', 0),
+                row.get('absent_count', 0),
+                row.get('rewarded_students', 0),
+                row.get('reward_events', 0),
+                row.get('reward_points', 0),
+                row.get('eftikad_students', 0),
+                row.get('eftikad_visits', 0),
+            ])
+
+        for i, w in enumerate([16, 16, 18, 18, 18, 16, 16, 18, 14, 14, 16, 14], start=1):
+            summary_ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
         # Column widths
         col_widths = [5, 20, 18, 14, 8, 10, 10, 30, 22]
