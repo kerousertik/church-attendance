@@ -4,6 +4,24 @@
 const DB_NAME = 'AttendanceDB';
 const DB_VERSION = 6;
 const ALL_GRADES = ['Pre K3', 'Pre K4', 'KG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+const DEFAULT_SERVER_BASE_URL = 'http://192.168.4.33:5000';
+const API_BASE_URL = localStorage.getItem('serverBaseUrl') ||
+    ((location.protocol === 'capacitor:' || location.protocol === 'ionic:') ? DEFAULT_SERVER_BASE_URL : '');
+const nativeFetch = window.fetch.bind(window);
+
+function serverUrl(path) {
+    if (!API_BASE_URL || !String(path).startsWith('/')) return path;
+    return `${API_BASE_URL}${path}`;
+}
+
+window.fetch = (input, options = {}) => {
+    const requestUrl = typeof input === 'string' ? serverUrl(input) : input;
+    const requestOptions = {
+        credentials: 'include',
+        ...options
+    };
+    return nativeFetch(requestUrl, requestOptions);
+};
 
 class AttendanceApp {
     constructor() {
