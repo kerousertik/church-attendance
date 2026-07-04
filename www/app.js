@@ -24,6 +24,8 @@ class AttendanceApp {
         this.notificationPermissionGranted = false;
         this.lastUnreadReportCount = null;
         this.reportNotificationPollTimer = null;
+        this.lastAnnouncementId = 0;
+        this.announcementNotificationPollTimer = null;
 
         // Filter selection state
         this.filterGrades = [];
@@ -97,6 +99,7 @@ class AttendanceApp {
 
         this.setupNativeNotifications();
         this.startReportNotificationPolling();
+        this.startAnnouncementNotificationPolling();
     }
 
     setRoleFlags(role) {
@@ -1096,8 +1099,6 @@ class AttendanceApp {
     }
 
     async setupNativeNotifications() {
-        if (!this.canSeeReports()) return;
-
         this.localNotifications = this.getLocalNotificationsPlugin();
         if (!this.localNotifications) {
             console.info('Native local notifications are not available in this environment.');
@@ -1123,6 +1124,15 @@ class AttendanceApp {
         }, 30000);
     }
 
+    startAnnouncementNotificationPolling() {
+        if (this.announcementNotificationPollTimer) return;
+
+        setTimeout(() => this.checkAnnouncementNotifications(), 2000);
+        this.announcementNotificationPollTimer = setInterval(() => {
+            this.checkAnnouncementNotifications();
+        }, 30000);
+    }
+
     async handleUnreadReportNotification(count) {
         if (!this.canSeeReports()) return;
 
@@ -1135,20 +1145,68 @@ class AttendanceApp {
 
         const newCount = count - previousCount;
         try {
-            await this.localNotifications.schedule({
-                notifications: [{
-                    id: Date.now() % 2147483647,
-                    title: 'Beloved Servants',
-                    body: newCount === 1 ? 'New servant report received.' : `${newCount} new servant reports received.`,
-                    schedule: { at: new Date(Date.now() + 250) },
-                    sound: 'default',
-                    smallIcon: 'ic_stat_icon',
-                    extra: { view: 'admin-reports' }
-                }]
-            });
+            await this.showNativeNotification(
+                'Beloved Servants',
+                newCount === 1 ? 'New servant report received.' : `${newCount} new servant reports received.`,
+                { view: 'admin-reports' }
+            );
         } catch (error) {
             console.warn('Could not show native notification', error);
         }
+    }
+
+    announcementStorageKey() {
+        return `lastSeenAnnouncementId:${this.username || 'guest'}`;
+    }
+
+    async checkAnnouncementNotifications() {
+        try {
+            const res = await fetch('/api/announcements');
+            if (!res.ok) return;
+
+            const data = await res.json();
+            const announcements = data.announcements || [];
+            if (announcements.length === 0) return;
+
+            const latest = announcements.reduce((top, item) => {
+                const currentId = Number(item.id || 0);
+                const topId = Number(top?.id || 0);
+                return currentId > topId ? item : top;
+            }, announcements[0]);
+
+            const latestId = Number(latest.id || 0);
+            const storedId = Number(localStorage.getItem(this.announcementStorageKey()) || '0');
+            const previousId = Math.max(this.lastAnnouncementId || 0, storedId);
+            this.lastAnnouncementId = latestId;
+
+            if (latestId <= previousId) return;
+
+            localStorage.setItem(this.announcementStorageKey(), String(latestId));
+            await this.showNativeNotification(
+                latest.title || 'New announcement',
+                latest.body || 'Open Beloved Servants to read the announcement.',
+                { view: 'announcements', announcementId: latestId }
+            );
+        } catch (error) {
+            console.warn('Could not check announcements for notifications', error);
+        }
+    }
+
+    async showNativeNotification(title, body, extra = {}) {
+        if (!this.localNotifications) this.localNotifications = this.getLocalNotificationsPlugin();
+        if (!this.localNotifications || !this.notificationPermissionGranted) return;
+
+        await this.localNotifications.schedule({
+            notifications: [{
+                id: Date.now() % 2147483647,
+                title,
+                body,
+                schedule: { at: new Date(Date.now() + 250) },
+                sound: 'default',
+                smallIcon: 'ic_stat_icon',
+                extra
+            }]
+        });
     }
 
     renderMainReportGradeSummary(rows) {
