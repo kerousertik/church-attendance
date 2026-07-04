@@ -56,6 +56,12 @@ html,
 body {
     height: 100%;
     overflow: hidden;
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    overscroll-behavior: none;
 }
 
 body {
@@ -63,6 +69,23 @@ body {
     background: var(--surface);
     color: var(--on-surface);
     line-height: 1.5;
+}
+
+input,
+textarea,
+select {
+    -webkit-user-select: text;
+    user-select: text;
+    font-size: 16px;
+}
+
+button,
+a,
+.nav-item,
+.action-tile,
+.stat-chip,
+.list-card {
+    touch-action: manipulation;
 }
 
 #app {

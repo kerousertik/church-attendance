@@ -9,5 +9,10 @@
   "server": {
     "url": "http://192.168.4.33:5000/",
     "cleartext": true
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
   }
 }

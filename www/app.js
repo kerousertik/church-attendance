@@ -20,6 +20,10 @@ class AttendanceApp {
         this.editingServantId = null;
         this.attendanceData = {};
         this.servantAttendanceData = {};
+        this.localNotifications = null;
+        this.notificationPermissionGranted = false;
+        this.lastUnreadReportCount = null;
+        this.reportNotificationPollTimer = null;
 
         // Filter selection state
         this.filterGrades = [];
@@ -90,6 +94,9 @@ class AttendanceApp {
         // Show header and navigation
         document.getElementById('main-header').style.display = 'flex';
         document.getElementById('main-nav').style.display = 'flex';
+
+        this.setupNativeNotifications();
+        this.startReportNotificationPolling();
     }
 
     setRoleFlags(role) {
@@ -901,6 +908,7 @@ class AttendanceApp {
         try {
             const res = await fetch('/api/admin/servant-reports/unread-count');
             const data = await res.json();
+            this.handleUnreadReportNotification(data.count || 0);
             const badge = document.getElementById('main-reports-badge');
             if (data.count > 0) {
                 badge.textContent = data.count > 99 ? '99+' : data.count;
@@ -1080,6 +1088,66 @@ class AttendanceApp {
             this.updateAdminReportsBadge();
         } catch (e) {
             listEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger);">Error loading reports.</div>';
+        }
+    }
+
+    getLocalNotificationsPlugin() {
+        return window.Capacitor?.Plugins?.LocalNotifications || null;
+    }
+
+    async setupNativeNotifications() {
+        if (!this.canSeeReports()) return;
+
+        this.localNotifications = this.getLocalNotificationsPlugin();
+        if (!this.localNotifications) {
+            console.info('Native local notifications are not available in this environment.');
+            return;
+        }
+
+        try {
+            let permission = await this.localNotifications.checkPermissions();
+            if (permission.display === 'prompt') {
+                permission = await this.localNotifications.requestPermissions();
+            }
+            this.notificationPermissionGranted = permission.display === 'granted';
+        } catch (error) {
+            console.warn('Could not enable native notifications', error);
+        }
+    }
+
+    startReportNotificationPolling() {
+        if (!this.canSeeReports() || this.reportNotificationPollTimer) return;
+
+        this.reportNotificationPollTimer = setInterval(() => {
+            this.updateAdminReportsBadge();
+        }, 30000);
+    }
+
+    async handleUnreadReportNotification(count) {
+        if (!this.canSeeReports()) return;
+
+        const previousCount = this.lastUnreadReportCount;
+        this.lastUnreadReportCount = count;
+
+        if (previousCount === null || count <= previousCount || count <= 0) return;
+        if (!this.localNotifications) this.localNotifications = this.getLocalNotificationsPlugin();
+        if (!this.localNotifications || !this.notificationPermissionGranted) return;
+
+        const newCount = count - previousCount;
+        try {
+            await this.localNotifications.schedule({
+                notifications: [{
+                    id: Date.now() % 2147483647,
+                    title: 'Beloved Servants',
+                    body: newCount === 1 ? 'New servant report received.' : `${newCount} new servant reports received.`,
+                    schedule: { at: new Date(Date.now() + 250) },
+                    sound: 'default',
+                    smallIcon: 'ic_stat_icon',
+                    extra: { view: 'admin-reports' }
+                }]
+            });
+        } catch (error) {
+            console.warn('Could not show native notification', error);
         }
     }
 
@@ -3581,3 +3649,17 @@ class AttendanceApp {
 
 // Initialize app
 const app = new AttendanceApp();
+
+// iOS WebView polish: prevent double-tap/pinch zoom so the IPA feels like an app.
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (event) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 320) {
+        event.preventDefault();
+    }
+    lastTouchEnd = now;
+}, { passive: false });
+
+document.addEventListener('gesturestart', (event) => {
+    event.preventDefault();
+}, { passive: false });
