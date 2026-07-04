@@ -236,6 +236,7 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     padding-bottom: 80px;
+    position: relative;
 }
 
 .view {
@@ -1547,6 +1548,83 @@ body {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+.page-transition-emblem {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+}
+
+.transition-emblem-ring {
+    width: min(118px, 30vw);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at center, rgba(240, 192, 96, 0.22), rgba(124, 92, 191, 0.08) 58%, transparent 70%),
+        rgba(19, 17, 26, 0.48);
+    border: 1px solid rgba(240, 192, 96, 0.36);
+    box-shadow:
+        0 0 0 8px rgba(240, 192, 96, 0.05),
+        0 18px 42px rgba(0, 0, 0, 0.42);
+    transform: scale(0.72);
+}
+
+.transition-emblem-ring img {
+    width: 82%;
+    aspect-ratio: 1;
+    object-fit: contain;
+}
+
+.page-transition-emblem.active {
+    visibility: visible;
+    animation: transition-emblem-backdrop 0.38s ease both;
+}
+
+.page-transition-emblem.active .transition-emblem-ring {
+    animation: transition-emblem-mark 0.38s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes transition-emblem-backdrop {
+    0% {
+        opacity: 0;
+        background: transparent;
+    }
+
+    28% {
+        opacity: 1;
+        background: rgba(19, 17, 26, 0.12);
+    }
+
+    100% {
+        opacity: 0;
+        background: transparent;
+    }
+}
+
+@keyframes transition-emblem-mark {
+    0% {
+        opacity: 0;
+        transform: scale(0.74) rotate(-5deg);
+    }
+
+    42% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(0.96) rotate(4deg);
     }
 }
 

@@ -826,6 +826,11 @@ class AttendanceApp {
     }
 
     showView(viewId) {
+        const shouldAnimateTransition = this.currentView && this.currentView !== viewId && viewId !== 'login';
+        if (shouldAnimateTransition) {
+            this.showPageTransitionEmblem();
+        }
+
         document.querySelectorAll('.view').forEach(v => {
             v.classList.remove('active');
             v.style.display = 'none';
@@ -853,6 +858,20 @@ class AttendanceApp {
         }
 
         this.currentView = viewId;
+    }
+
+    showPageTransitionEmblem() {
+        const emblem = document.getElementById('page-transition-emblem');
+        if (!emblem) return;
+
+        emblem.classList.remove('active');
+        void emblem.offsetWidth;
+        emblem.classList.add('active');
+
+        clearTimeout(this._transitionEmblemTimer);
+        this._transitionEmblemTimer = setTimeout(() => {
+            emblem.classList.remove('active');
+        }, 420);
     }
 
     showHome() {
