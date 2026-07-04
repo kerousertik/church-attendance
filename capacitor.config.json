@@ -4,7 +4,11 @@
   "webDir": "www",
   "bundledWebRuntime": false,
   "ios": {
-    "contentInset": "automatic"
+    "contentInset": "never"
+  },
+  "server": {
+    "url": "http://192.168.4.33:5000/",
+    "cleartext": true
   },
   "plugins": {
     "LocalNotifications": {
