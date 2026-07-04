@@ -23,14 +23,14 @@ jobs:
           npm install
           npm install @capacitor/assets --save-dev
           
-      - name: Generate Assets
-        run: |
-          npx capacitor-assets generate --ios
-          
       - name: Initialize iOS Platform
         run: |
           rm -rf ios
           npx cap add ios
+
+      - name: Generate iOS app icons
+        run: |
+          npx capacitor-assets generate --ios
       
       - name: Sync web assets
         run: |
@@ -101,14 +101,14 @@ jobs:
             mkdir -p build/Payload
             cp -r build/App.xcarchive/Products/Applications/App.app build/Payload/
             cd build
-            zip -r Attendance-Device.ipa Payload
+            zip -r Beloved-Servants.ipa Payload
           else
-            mv build/App.ipa build/Attendance-Device.ipa
+            mv build/App.ipa build/Beloved-Servants.ipa
           fi
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Attendance-iOS
-          path: ios/App/build/Attendance-Device.ipa
+          name: Beloved-Servants-iOS
+          path: ios/App/build/Beloved-Servants.ipa
           retention-days: 30
