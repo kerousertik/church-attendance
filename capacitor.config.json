@@ -1,13 +1,13 @@
 {
   "appId": "com.stjohn.attendance",
-  "appName": "StJohn Attendance",
+  "appName": "Beloved Servants",
   "webDir": "www",
   "bundledWebRuntime": false,
   "ios": {
     "contentInset": "automatic"
   },
   "server": {
-    "url": "https://church-attendance-cbsu.onrender.com/",
+    "url": "http://192.168.4.33:5000/",
     "cleartext": true
   }
 }

@@ -35,6 +35,11 @@ jobs:
       - name: Sync web assets
         run: |
           npx cap sync ios
+
+      - name: Allow local HTTP server on iOS
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" ios/App/App/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" ios/App/App/Info.plist || true
       
       - name: Install CocoaPods
         run: |
