@@ -2,7 +2,7 @@
 // Works completely standalone without server
 
 const DB_NAME = 'AttendanceDB';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const ALL_GRADES = ['Pre K3', 'Pre K4', 'KG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 
 class AttendanceApp {
@@ -26,6 +26,7 @@ class AttendanceApp {
         this.reportNotificationPollTimer = null;
         this.lastAnnouncementId = 0;
         this.announcementNotificationPollTimer = null;
+        this.syncInProgress = false;
 
         // Filter selection state
         this.filterGrades = [];
@@ -52,8 +53,22 @@ class AttendanceApp {
             localStorage.setItem('userClassName', this.userClassName);
             localStorage.setItem('assignedGrades', this.assignedGrades.join(','));
             localStorage.setItem('assignedSections', this.assignedSections.join(','));
-            this.initApp();
+            await this.initApp();
         } else {
+            const savedRole = localStorage.getItem('userRole');
+            const savedUsername = localStorage.getItem('username');
+            if (savedRole && savedUsername) {
+                this.username = savedUsername;
+                this.userClassName = localStorage.getItem('userClassName') || 'all';
+                this.assignedGrades = this.parseAssignedGrades(localStorage.getItem('assignedGrades') || '');
+                this.assignedSections = this.parseAssignedSections(localStorage.getItem('assignedSections') || '');
+                this.setRoleFlags(savedRole);
+                await this.initApp();
+                this.showToast('Offline mode: using saved phone data', 'warning');
+                this.setupEventListeners();
+                return;
+            }
+
             localStorage.removeItem('userRole');
             localStorage.removeItem('username');
             localStorage.removeItem('userClassName');
@@ -82,7 +97,10 @@ class AttendanceApp {
         }
     }
 
-    initApp() {
+    async initApp() {
+        await this.flushOfflineQueue({ silent: true });
+        await this.syncStudentsFromServer({ silent: true });
+
         this.updateDate();
         this.updateStats();
         this.loadBirthdays();
@@ -453,7 +471,7 @@ class AttendanceApp {
                 event.target.reset();
                 
                 // Initialize main app
-                this.initApp();
+                await this.initApp();
             } else {
                 this.showToast(result.error || 'Invalid credentials', 'error');
             }
@@ -540,8 +558,176 @@ class AttendanceApp {
                     servantEftikadStore.createIndex('servantId', 'servantId', { unique: false });
                     servantEftikadStore.createIndex('dateServant', ['date', 'servantId'], { unique: true });
                 }
+
+                if (!db.objectStoreNames.contains('offline_queue')) {
+                    const queueStore = db.createObjectStore('offline_queue', { keyPath: 'id', autoIncrement: true });
+                    queueStore.createIndex('createdAt', 'createdAt', { unique: false });
+                    queueStore.createIndex('type', 'type', { unique: false });
+                }
             };
         });
+    }
+
+    cacheBustUrl(url) {
+        const separator = url.includes('?') ? '&' : '?';
+        return `${url}${separator}_=${Date.now()}`;
+    }
+
+    normalizeServerStudent(student) {
+        const parsedId = parseInt(student.id, 10);
+        return {
+            ...student,
+            id: Number.isFinite(parsedId) ? parsedId : student.id,
+            grade: this.gradeKey(student.grade) || student.grade || '',
+            gender: this.normalizeGender(student.gender) || student.gender || '',
+            birthday: student.birthday || student.dob || '',
+            dob: student.dob || student.birthday || '',
+            notes: student.notes || student.comments || '',
+            comments: student.comments || student.notes || '',
+            parent_phone: student.parent_phone || student.parentPhone || '',
+            parentPhone: student.parentPhone || student.parent_phone || '',
+            servant: student.servant || student.servant_name || student.class_name || ''
+        };
+    }
+
+    async replaceAllStudents(students) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['students'], 'readwrite');
+            const store = transaction.objectStore('students');
+            store.clear();
+            students.forEach(student => store.put(this.normalizeServerStudent(student)));
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+        });
+    }
+
+    async syncStudentsFromServer({ silent = false } = {}) {
+        if (!this.username) return false;
+        try {
+            const response = await fetch(this.cacheBustUrl('/api/students'), { cache: 'no-store' });
+            if (!response.ok) throw new Error(`Students sync failed (${response.status})`);
+            const data = await response.json();
+            if (!Array.isArray(data.students)) throw new Error('Invalid students response');
+
+            await this.replaceAllStudents(data.students);
+            localStorage.setItem('lastStudentsSync', new Date().toISOString());
+            if (!silent) this.showToast(`Synced ${data.students.length} students from server`, 'success');
+            return true;
+        } catch (error) {
+            console.warn('Student sync failed; using phone data', error);
+            if (!silent) this.showToast('Offline: using saved phone data', 'warning');
+            return false;
+        }
+    }
+
+    async addOfflineQueueItem(item) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['offline_queue'], 'readwrite');
+            const store = transaction.objectStore('offline_queue');
+            const request = store.add({
+                ...item,
+                attempts: 0,
+                createdAt: new Date().toISOString()
+            });
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async getOfflineQueueItems() {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['offline_queue'], 'readonly');
+            const store = transaction.objectStore('offline_queue');
+            const request = store.getAll();
+            request.onsuccess = () => resolve((request.result || []).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async deleteOfflineQueueItem(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['offline_queue'], 'readwrite');
+            const store = transaction.objectStore('offline_queue');
+            const request = store.delete(id);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async updateOfflineQueueItem(item) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['offline_queue'], 'readwrite');
+            const store = transaction.objectStore('offline_queue');
+            const request = store.put(item);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async postJsonWithOfflineQueue(url, body, queueInfo = {}) {
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            return await response.json();
+        } catch (error) {
+            await this.addOfflineQueueItem({
+                type: queueInfo.type || 'post_json',
+                description: queueInfo.description || url,
+                url,
+                method: 'POST',
+                body
+            });
+            return {
+                success: true,
+                queued: true,
+                count: Array.isArray(body.records) ? body.records.length : 1
+            };
+        }
+    }
+
+    async flushOfflineQueue({ silent = false } = {}) {
+        if (this.syncInProgress) return 0;
+        this.syncInProgress = true;
+
+        let synced = 0;
+        try {
+            const items = await this.getOfflineQueueItems();
+            for (const item of items) {
+                try {
+                    const response = await fetch(item.url, {
+                        method: item.method || 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(item.body)
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || data.success === false) {
+                        item.attempts = (item.attempts || 0) + 1;
+                        item.lastError = data.error || `HTTP ${response.status}`;
+                        item.lastAttemptAt = new Date().toISOString();
+                        await this.updateOfflineQueueItem(item);
+                        break;
+                    }
+                    await this.deleteOfflineQueueItem(item.id);
+                    synced++;
+                } catch (error) {
+                    item.attempts = (item.attempts || 0) + 1;
+                    item.lastError = error.message || 'Network error';
+                    item.lastAttemptAt = new Date().toISOString();
+                    await this.updateOfflineQueueItem(item);
+                    break;
+                }
+            }
+        } finally {
+            this.syncInProgress = false;
+        }
+
+        if (synced > 0 && !silent) {
+            this.showToast(`Uploaded ${synced} saved item${synced === 1 ? '' : 's'} to server`, 'success');
+        }
+        return synced;
     }
 
     async getAllStudents() {
@@ -832,7 +1018,17 @@ class AttendanceApp {
     }
 
     setupEventListeners() {
-        // Add any global event listeners here
+        window.addEventListener('online', async () => {
+            this.showToast('Internet is back. Syncing saved data...', 'info');
+            await this.flushOfflineQueue({ silent: false });
+            await this.syncStudentsFromServer({ silent: true });
+            this.updateStats();
+            if (this.currentView === 'students') await this.loadStudentsList();
+        });
+
+        window.addEventListener('offline', () => {
+            this.showToast('Offline mode: attendance stays saved on this phone', 'warning');
+        });
     }
 
     showView(viewId) {
@@ -1340,6 +1536,9 @@ class AttendanceApp {
     }
 
     async showTakeAttendanceInternal() {
+        if (navigator.onLine) {
+            await this.syncStudentsFromServer({ silent: true });
+        }
         this.showView('attendance');
         await this.loadAttendanceForDate();
     }
@@ -1750,20 +1949,22 @@ class AttendanceApp {
         }
 
         try {
-            const res = await fetch('/api/batch-attendance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date, records })
+            const data = await this.postJsonWithOfflineQueue('/api/batch-attendance', { date, records }, {
+                type: 'batch_attendance',
+                description: `Attendance for ${date}`
             });
-            const data = await res.json();
             if (data.success) {
-                this.showToast(`Submitted ${data.count} records & points calculated!`, 'success');
-                await this.submitAttendanceReport();
+                if (data.queued) {
+                    this.showToast(`Offline: saved ${data.count} records on this phone. They will upload when internet returns.`, 'warning');
+                } else {
+                    this.showToast(`Submitted ${data.count} records & points calculated!`, 'success');
+                    await this.submitAttendanceReport();
+                }
             } else {
                 this.showToast(data.error || 'Submit failed', 'error');
             }
         } catch(e) {
-            this.showToast('Network error — server reachable?', 'error');
+            this.showToast('Could not save attendance. Try again.', 'error');
         } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round">cloud_upload</span> Submit & Award Points'; }
         }
@@ -1824,18 +2025,17 @@ class AttendanceApp {
             const absent  = allAttendance.filter(a => a.present === false).length;
             const total   = allAttendance.length;
 
-            await fetch('/api/servant-report', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    servant_username: this.username,
-                    report_type: 'attendance',
-                    date,
-                    total,
-                    present,
-                    absent,
-                    notes: `Submitted by ${this.username}`
-                })
+            await this.postJsonWithOfflineQueue('/api/servant-report', {
+                servant_username: this.username,
+                report_type: 'attendance',
+                date,
+                total,
+                present,
+                absent,
+                notes: `Submitted by ${this.username}`
+            }, {
+                type: 'servant_report',
+                description: `Attendance report for ${date}`
             });
         } catch(e) {
             // Silent — don't interrupt servant workflow
@@ -1848,18 +2048,17 @@ class AttendanceApp {
             const now = new Date();
             const date = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
-            await fetch('/api/servant-report', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    servant_username: this.username,
-                    report_type: 'eftikad',
-                    date,
-                    total: visitCount,
-                    present: visitCount,
-                    absent: 0,
-                    notes: `${visitCount} student visit(s) recorded by ${this.username}`
-                })
+            await this.postJsonWithOfflineQueue('/api/servant-report', {
+                servant_username: this.username,
+                report_type: 'eftikad',
+                date,
+                total: visitCount,
+                present: visitCount,
+                absent: 0,
+                notes: `${visitCount} student visit(s) recorded by ${this.username}`
+            }, {
+                type: 'servant_report',
+                description: `Eftikad report for ${date}`
             });
         } catch(e) {
             // Silent
@@ -1872,6 +2071,9 @@ class AttendanceApp {
     }
 
     async showAllStudentsInternal() {
+        if (navigator.onLine) {
+            await this.syncStudentsFromServer({ silent: true });
+        }
         this.showView('students');
         await this.loadStudentsList();
     }
@@ -3212,17 +3414,18 @@ class AttendanceApp {
         if (isNaN(pts) || pts === 0) { this.showToast('Enter a valid number', 'error'); return; }
         const sid = this._currentPointsStudentId;
         if (!sid) return;
-        const res = await fetch('/api/points/add', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({student_id: sid, points: pts, reason})
+        const data = await this.postJsonWithOfflineQueue('/api/points/add', {student_id: sid, points: pts, reason}, {
+            type: 'points',
+            description: `Points for student ${sid}`
         });
-        if ((await res.json()).success) {
-            this.showToast(`${pts>0?'+':''}${pts} points saved!`, 'success');
+        if (data.success) {
+            this.showToast(data.queued ? `${pts>0?'+':''}${pts} points saved offline` : `${pts>0?'+':''}${pts} points saved!`, data.queued ? 'warning' : 'success');
             document.getElementById('points-manual-amount').value = '';
             document.getElementById('points-manual-reason').value = '';
-            await this.showStudentPoints(this._currentPointsStudentKey || sid, document.getElementById('points-detail-name').textContent);
-            await this.loadPoints();
+            if (!data.queued) {
+                await this.showStudentPoints(this._currentPointsStudentKey || sid, document.getElementById('points-detail-name').textContent);
+                await this.loadPoints();
+            }
         }
     }
 
@@ -3234,15 +3437,13 @@ class AttendanceApp {
         const servant = document.getElementById('points-servant-filter').value;
         const target = (servant && servant !== 'all') ? `class "${servant}"` : 'ALL students';
         if (!confirm(`This will reset current points for ${target}. History is preserved. Continue?`)) return;
-        const res = await fetch('/api/points/clear', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({servant: servant !== 'all' ? servant : null})
+        const data = await this.postJsonWithOfflineQueue('/api/points/clear', {servant: servant !== 'all' ? servant : null}, {
+            type: 'points',
+            description: 'Clear points'
         });
-        const data = await res.json();
         if (data.success) {
-            this.showToast(`Points cleared for ${data.cleared_count} students`, 'success');
-            await this.loadPoints();
+            this.showToast(data.queued ? 'Clear points saved offline' : `Points cleared for ${data.cleared_count} students`, data.queued ? 'warning' : 'success');
+            if (!data.queued) await this.loadPoints();
         }
     }
 
@@ -3354,27 +3555,26 @@ class AttendanceApp {
         const notes = document.getElementById('eftikad-notes').value.trim();
         const sid = this._eftikadStudentId;
         if (!sid) return;
-        const res = await fetch('/api/eftikad', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({
-                servant_username: this.username,
-                student_id: sid,
-                student_name: this._eftikadStudent?.name || '',
-                grade: this._eftikadStudent?.grade || '',
-                gender: this._eftikadStudent?.gender || '',
-                servant: this._eftikadStudent?.servant || this.username || '',
-                phone: this._eftikadStudent?.phone || '',
-                parent_phone: this._eftikadStudent?.parent_phone || this._eftikadStudent?.parentPhone || '',
-                date: new Date().toISOString().split('T')[0],
-                whatsapp_sent: 1,
-                notes
-            })
+        const data = await this.postJsonWithOfflineQueue('/api/eftikad', {
+            servant_username: this.username,
+            student_id: sid,
+            student_name: this._eftikadStudent?.name || '',
+            grade: this._eftikadStudent?.grade || '',
+            gender: this._eftikadStudent?.gender || '',
+            servant: this._eftikadStudent?.servant || this.username || '',
+            phone: this._eftikadStudent?.phone || '',
+            parent_phone: this._eftikadStudent?.parent_phone || this._eftikadStudent?.parentPhone || '',
+            date: new Date().toISOString().split('T')[0],
+            whatsapp_sent: 1,
+            notes
+        }, {
+            type: 'eftikad',
+            description: `Eftikad for student ${sid}`
         });
-        if ((await res.json()).success) {
-            this.showToast('Eftikad record saved!', 'success');
+        if (data.success) {
+            this.showToast(data.queued ? 'Eftikad record saved offline' : 'Eftikad record saved!', data.queued ? 'warning' : 'success');
             document.getElementById('eftikad-action-modal').classList.remove('active');
-            await this.loadEftikad();
+            if (!data.queued) await this.loadEftikad();
         }
     }
 
@@ -3429,12 +3629,12 @@ class AttendanceApp {
     }
 
     async setBibleDays(studentId, weekStart, days) {
-        await fetch('/api/bible', {
-            method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({student_id: studentId, week_start_date: weekStart, days_read: days})
+        const data = await this.postJsonWithOfflineQueue('/api/bible', {student_id: studentId, week_start_date: weekStart, days_read: days}, {
+            type: 'bible',
+            description: `Bible days for student ${studentId}`
         });
-        this.showToast(`${days}/7 days saved`, 'success');
-        await this.loadBibleTracking();
+        this.showToast(data.queued ? `${days}/7 days saved offline` : `${days}/7 days saved`, data.queued ? 'warning' : 'success');
+        if (!data.queued) await this.loadBibleTracking();
     }
 
     // ---- ANNOUNCEMENTS ----
