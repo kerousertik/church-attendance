@@ -60,5 +60,20 @@ jdk-*/
 *.tmp
 *.bak
 gradle_log.txt
+build_log.txt
 error.txt
 .env
+
+# Secrets / keys
+id_ed25519
+id_ed25519.pub
+*.pem
+*.key
+
+# Tunneling tools (large binaries, not source)
+ngrok.exe
+ngrok.zip
+
+# Data exports (contain real student PII - never commit)
+*.xlsx
+*.xls
